@@ -1,36 +1,36 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# NDU Live — die Mitmach-App für Minute 5
 
-## Getting Started
+QR-Code an der Leinwand, Studierende sind am Handy in 20 Sekunden drin, Ergebnisse erscheinen live. Danach der Satz: „Diese App: 60 Minuten, keine Zeile Code.“
 
-First, run the development server:
+**Stack:** Next.js · Supabase (Postgres + Realtime) · Motion · Vercel — derselbe Stack, den die Studierenden im Kurs benutzen.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Ablauf der Session (5 Schritte, mit ← → oder den Buttons unten)
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+1. **Lobby** – QR-Code, Teilnehmende ploppen rein
+2. **Umfrage** – „Wie viel hast du schon programmiert?“
+3. **Umfrage** – „Was macht dir am meisten Respekt?“
+4. **Freitext** – „Was würdest du bauen, wenn du es könntest?“ (Karten fliegen rein – gleichzeitig Ideensammlung für die Hausaufgabe!)
+5. **Finale** – „60 Minuten, keine Zeile Code“ + Emoji-Reaktionen steigen auf
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Fragen und Optionen ändern: `src/lib/steps.ts`.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Einrichten (einmalig, ~15 Minuten)
 
-## Learn More
+1. **Supabase-Projekt** anlegen (Region Frankfurt). SQL-Editor → Inhalt von `supabase/schema.sql` ausführen. Das legt Tabellen, Realtime und Policies an und erstellt die Session `ndu`.
+2. **`.env.local`** nach `.env.example` anlegen: URL + anon key (Project Settings → API), **Service-Role-Key** (gleiche Seite, geheim halten) und ein frei gewähltes `PRESENTER_KEY`.
+3. Lokal testen: `npm install && npm run dev` → `http://localhost:3000/present/ndu` am Laptop, `http://<deine-IP>:3000/join/ndu` am Handy (gleiches WLAN).
+4. **Vercel:** Repo importieren, die vier Environment-Variablen eintragen, deployen. Fertig: `https://<projekt>.vercel.app/present/ndu`.
 
-To learn more about Next.js, take a look at the following resources:
+## Im Hörsaal
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Leinwand: `/present/ndu` im Vollbild (F11). Beim ersten „Weiter“ fragt die Seite den `PRESENTER_KEY` ab und merkt ihn sich im Browser.
+- Steuerung: Pfeiltasten oder die (dezenten) Buttons unten rechts. **Reset** löscht alle Teilnehmer und Antworten – für den nächsten Durchgang.
+- Vorher einmal mit 2–3 Handys testen: Beitreten, Antworten, Reaktionen.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Sicherheit (bewusst einfach gehalten)
 
-## Deploy on Vercel
+Anonymes Lesen und Anlegen ist erlaubt (es gibt nichts Schützenswertes), Ändern und Löschen nur über die API-Routen mit `PRESENTER_KEY` und Service-Role-Key im Backend. Für eine Demo okay – im Kurs ein gutes Beispiel für die Frage „was dürfte hier ein Fremder tun?“ (Antwort: Spam. Rate Limiting wäre der nächste Schritt.)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Ein eigener Durchgang für ein anderes Publikum
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+`insert into sessions (code, title) values ('innolab', 'Innolab 2026');` → `/present/innolab` und `/join/innolab`.
