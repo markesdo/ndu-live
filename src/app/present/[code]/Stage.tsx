@@ -5,6 +5,7 @@ import { STEPS, courseUrl } from "@/lib/steps";
 import { stripNames, type Spotlight, type Thema } from "@/lib/ai-shared";
 import { doneSpot, ideaTextForAi, requestSpot, type SpotQueue } from "@/lib/spot-queue";
 import { hash } from "@/lib/avatar";
+import { useFlash } from "@/lib/useFlash";
 import type { Answer, Participant, Reaction } from "@/lib/useSession";
 import Lobby from "./Lobby";
 import Poll, { Pool } from "./Poll";
@@ -52,25 +53,31 @@ export default function Stage(props: Props) {
   const names = participants.map((p) => p.name);
 
   // KI: Ergebnis pro Idee merken, pro Route höchstens eine Anfrage gleichzeitig, nie blockierend.
-  const [spots, setSpots] = useState<Record<string, SpotState>>({});
-  const [themenNote, setThemenNote] = useState<string | null>(null);
+  const [spots, setSpotsState] = useState<Record<string, SpotState>>({});
+  const note = useFlash(3000);
   const themenBusy = useRef(false);
 
   // Spotlight-Warteschlange (src/lib/spot-queue.ts): eine Anfrage läuft, dahinter ein Platz für die
   // zuletzt geöffnete Idee. Verdrängte Ideen gehen zurück auf „unbekannt“ und laden beim nächsten
-  // Öffnen neu. Ideen und Namen kommen aus Refs – also aus dem Stand beim Senden, nicht beim Einreihen.
+  // Öffnen neu. Ideen, Namen und der KI-Zugang (Key) kommen aus Refs – also aus dem Stand beim Senden.
   const queue = useRef<SpotQueue>({ busy: null, wanted: null });
+  // spotsRef ist die eine Quelle der Wahrheit für Entscheidungen; React-State nur zum Anzeigen.
   const spotsRef = useRef(spots);
+  const updateSpots = (fn: (s: Record<string, SpotState>) => Record<string, SpotState>) => {
+    spotsRef.current = fn(spotsRef.current);
+    setSpotsState(spotsRef.current);
+  };
   const answersRef = useRef(answers);
   const peopleRef = useRef(participants);
-  useEffect(() => { spotsRef.current = spots; answersRef.current = answers; peopleRef.current = participants; });
-  const forget = (id: string) => setSpots((s) => { const n = { ...s }; delete n[id]; spotsRef.current = n; return n; });
+  const aiRef = useRef(ai);
+  useEffect(() => { answersRef.current = answers; peopleRef.current = participants; aiRef.current = ai; });
+  const forget = (id: string) => updateSpots((s) => { const n = { ...s }; delete n[id]; return n; });
   function startSpot(id: string) {
     const text = ideaTextForAi(id, answersRef.current, peopleRef.current);
     if (text === null) { forget(id); finishSpot(); return; }
-    ai.spotlight(text)
+    aiRef.current.spotlight(text)
       .catch(() => null)
-      .then((data) => setSpots((s) => ({ ...s, [id]: data ? { status: "ok", data } : { status: "off" } })))
+      .then((data) => updateSpots((s) => ({ ...s, [id]: data ? { status: "ok", data } : { status: "off" } })))
       .finally(finishSpot);
   }
   function finishSpot() {
@@ -79,12 +86,13 @@ export default function Stage(props: Props) {
     if (start) startSpot(start);
   }
   function fetchSpot(id: string) {
+    // Bekannt und nicht „off“ (lädt gerade, wartet oder fertig) → nichts tun. „off“ wird erneut versucht.
     const known = spotsRef.current[id];
-    if (known && known.status !== "off" && !(known.status === "loading" && queue.current.busy !== id && queue.current.wanted !== id)) return;
+    if (known && known.status !== "off") return;
     const { q, start, dropped } = requestSpot(queue.current, id);
     queue.current = q;
     if (dropped) forget(dropped);
-    setSpots((s) => ({ ...s, [id]: { status: "loading" } }));
+    updateSpots((s) => ({ ...s, [id]: { status: "loading" } }));
     if (start) startSpot(start);
   }
   function openSpot(id: string) {
@@ -95,26 +103,19 @@ export default function Stage(props: Props) {
   function requestThemen() {
     if (current.kind !== "text" || themenBusy.current) return;
     if (sub.themen) { patch({ themen: null }); return; }
-    if (ideas.length < 4) { flashNote("Für Themen braucht es mindestens vier Ideen."); return; }
+    if (ideas.length < 4) { note.flash("Für Themen braucht es mindestens vier Ideen."); return; }
     themenBusy.current = true;
-    setThemenNote("Ordne Ideen …");
+    note.set("Ordne Ideen …");
     const forStep = step;
     ai.themen(ideas.map((a) => ({ id: a.id, text: stripNames(a.value, names) })))
       .catch(() => null)
       .then((themen) => {
         // Gespeicherter Zustand kann noch zum vorigen Schritt gehören (nichts hat ihn hier geändert) – dann frisch beginnen.
-        if (themen) { setSub((s) => (stepRef.current !== forStep ? s : { ...(s.step === forStep ? s : fresh(forStep)), themen })); setThemenNote(null); }
-        else flashNote("Themen gerade nicht verfügbar.");
+        if (themen) { setSub((s) => (stepRef.current !== forStep ? s : { ...(s.step === forStep ? s : fresh(forStep)), themen })); note.set(null); }
+        else note.flash("Themen gerade nicht verfügbar.");
       })
       .finally(() => { themenBusy.current = false; });
   }
-  const noteTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  function flashNote(t: string) {
-    setThemenNote(t);
-    clearTimeout(noteTimer.current);
-    noteTimer.current = setTimeout(() => setThemenNote(null), 3000);
-  }
-
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (dialogOpen || e.target instanceof HTMLInputElement || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -167,7 +168,7 @@ export default function Stage(props: Props) {
                 )}
                 {current.kind === "text" && (
                   <IdeaWall title={current.title} ideas={ideas} participants={participants} spotlightId={sub.spot}
-                    onSpotlight={openSpot} themen={sub.themen} themenNote={themenNote} />
+                    onSpotlight={openSpot} themen={sub.themen} themenNote={note.message} />
                 )}
                 {current.kind === "finale" && <Finale title={current.title} ideas={allIdeas} hook={sub.hook && !!courseUrl(host)} courseUrl={courseUrl(host) ?? ""} />}
               </motion.div>

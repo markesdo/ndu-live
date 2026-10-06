@@ -1,7 +1,8 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useSession } from "@/lib/useSession";
+import { useFlash } from "@/lib/useFlash";
 import { STEPS } from "@/lib/steps";
 import { parseSpotlight, type Thema } from "@/lib/ai-shared";
 import Stage, { type StageAi } from "./Stage";
@@ -26,18 +27,12 @@ export default function PresentClient({ code }: { code: string }) {
   const resetRequest = (k: string) => fetch("/api/reset", { method: "POST", body: JSON.stringify({ code, key: k }) });
 
   // Kurzer Hinweis auf der Bühne, wenn Weiter/Reset nicht gespeichert wurde (Netz weg, Serverfehler).
-  const [notice, setNotice] = useState<string | null>(null);
-  const noticeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  function flash(t: string) {
-    setNotice(t);
-    clearTimeout(noticeTimer.current);
-    noticeTimer.current = setTimeout(() => setNotice(null), 3500);
-  }
+  const notice = useFlash(3500);
 
   async function run(action: (k: string) => Promise<Response>) {
     const res = await action(key).catch(() => null);
     if (res?.status === 401) setPending(() => action);
-    else if (!res || !res.ok) flash("Nicht gespeichert – nochmal");
+    else if (!res || !res.ok) notice.flash("Nicht gespeichert – nochmal");
   }
   function go(next: number) {
     if (next < 0 || next >= STEPS.length) return;
@@ -69,10 +64,10 @@ export default function PresentClient({ code }: { code: string }) {
       onUnlock={key ? undefined : () => setPending(() => stepRequest(step))}
       dialogOpen={dialogOpen} ai={ai}>
       <AnimatePresence>
-        {notice && (
+        {notice.message && (
           <motion.p key="notice" role="status" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
             className="fixed bottom-[8vh] left-1/2 z-40 -translate-x-1/2 rounded-full border border-accent-2 bg-card px-5 py-2 font-mono text-[clamp(14px,1.2vw,22px)] text-accent-2 shadow-xl">
-            {notice}
+            {notice.message}
           </motion.p>
         )}
         {pending && (
@@ -81,12 +76,14 @@ export default function PresentClient({ code }: { code: string }) {
             onCancel={() => setPending(null)}
             onSubmit={async (k): Promise<KeyResult> => {
               const res = await pending(k).catch(() => null);
-              if (res?.status === 401) return "wrong";
-              // Key nur speichern, wenn der Server ihn wirklich angenommen hat.
-              if (!res || !res.ok) return "offline";
+              if (!res) return "offline"; // keine Antwort: Key ungeprüft, nicht speichern
+              if (res.status === 401) return "wrong";
+              // Jede andere Antwort heißt: Key angenommen. Speichern – auch wenn der Schritt selbst scheiterte
+              // (500 bei Datenbankfehler, 429), sonst ließe sich die Leinwand gar nicht freischalten.
               setKey(k);
               try { localStorage.setItem("ndu-presenter-key", k); } catch {}
               setPending(null);
+              if (!res.ok) notice.flash("Key gespeichert – Schritt nicht gespeichert, nochmal");
               return "ok";
             }}
           />
