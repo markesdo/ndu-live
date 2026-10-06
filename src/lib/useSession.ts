@@ -19,6 +19,8 @@ export function useSession(code: string) {
   const [channelDown, setChannelDown] = useState(false);
   // Ein Nachladen (nach Standby/Wiederverbinden) ist gescheitert – der alte Stand bleibt stehen.
   const [refreshFailed, setRefreshFailed] = useState(false);
+  // Stufe des Lobby-Spiels („Der Raum schreibt den Prompt“) – nur per Broadcast von der Leinwand, nicht gespeichert.
+  const [energyStage, setEnergyStage] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -76,6 +78,10 @@ export function useSession(code: string) {
           loader.arrivedAnswer(a.id);
           setAnswers((prev) => (prev.some((x) => x.id === a.id) ? prev : [...prev, a]));
         })
+      .on("broadcast", { event: "stage" }, ({ payload }) => {
+        const s = (payload as { stage?: unknown })?.stage;
+        if (typeof s === "number" && s >= 0 && s <= 3) setEnergyStage((prev) => (prev === null || s > prev ? s : prev));
+      })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "reactions", filter: `session_code=eq.${code}` },
         (payload) => {
           const r = payload.new as Reaction;
@@ -108,5 +114,5 @@ export function useSession(code: string) {
     };
   }, [code]);
 
-  return { step, participants, answers, reactions, error, live, reconnecting: channelDown || refreshFailed };
+  return { step, participants, answers, reactions, error, live, reconnecting: channelDown || refreshFailed, energyStage };
 }

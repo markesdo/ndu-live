@@ -92,6 +92,6 @@ export default function PreviewClient({ code, vorschau }: { code: string; vorsch
 
   return (
     <Stage code={code} step={step} participants={people} answers={answers} reactions={reactions} live reconnecting={false}
-      go={(n) => { if (n >= 0 && n < STEPS.length) { setStep(n); setTick(0); } }} onReset={() => setTick(0)} dialogOpen={false} ai={ai} />
+      go={(n) => { if (n >= 0 && n < STEPS.length) { setStep(n); setTick(0); } }} onReset={() => setTick(0)} dialogOpen={false} ai={ai} preview />
   );
 }

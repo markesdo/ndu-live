@@ -23,6 +23,7 @@ type Props = {
   live: boolean; reconnecting: boolean;
   go: (next: number) => void; onReset: () => void; onUnlock?: () => void;
   dialogOpen: boolean; ai: StageAi; children?: React.ReactNode;
+  preview?: boolean; // nur Vorschau: Lobby-Spiel mit erfundenen Tipps, ohne Netz
 };
 
 // Zwischenzustände nur auf der Leinwand (Pointe, Spotlight, Themen, Kurs-Hinweis). Sie gehören zu
@@ -31,7 +32,7 @@ type Sub = { step: number; punch: boolean; spot: string | null; hook: boolean; t
 const fresh = (step: number): Sub => ({ step, punch: false, spot: null, hook: false, themen: null });
 
 export default function Stage(props: Props) {
-  const { code, step, participants, answers, reactions, live, reconnecting, go, onReset, onUnlock, dialogOpen, ai, children } = props;
+  const { code, step, participants, answers, reactions, live, reconnecting, go, onReset, onUnlock, dialogOpen, ai, children, preview } = props;
   const reduce = useReducedMotion();
   const [origin, setOrigin] = useState("");
   const [host, setHost] = useState("localhost");
@@ -161,7 +162,7 @@ export default function Stage(props: Props) {
             <AnimatePresence mode="wait">
               <motion.div key={step} initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -30 }}
                 transition={{ duration: 0.35, ease: [0.2, 0, 0, 1] }} className="w-full">
-                {current.kind === "lobby" && <Lobby participants={participants} joinUrl={joinUrl} showQr={!!origin} />}
+                {current.kind === "lobby" && <Lobby code={code} participants={participants} joinUrl={joinUrl} showQr={!!origin} preview={preview} />}
                 {current.kind === "poll" && (
                   <Poll step={step} title={current.title} options={current.options} participants={participants} answers={answers}
                     punchline={current.punchline} showPunchline={sub.punch} />
