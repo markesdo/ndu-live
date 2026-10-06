@@ -2,7 +2,7 @@
 // Ausführen: npm test
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mergeRows, backoffMs } from "../src/lib/session-merge.ts";
+import { mergeRows, backoffMs, createLoader } from "../src/lib/session-merge.ts";
 import { requestSpot, doneSpot, ideaTextForAi } from "../src/lib/spot-queue.ts";
 import { checkAccess } from "../src/lib/ai-shared.ts";
 
@@ -63,4 +63,71 @@ test("Zugang zur KI: falscher oder fehlender Key 401, ohne API-Key 503, sonst fr
   assert.equal(checkAccess({ key: "" }, { ...env, PRESENTER_KEY: "" }), 401);
   assert.equal(checkAccess({ key: "geheim" }, { PRESENTER_KEY: "geheim" }), 503);
   assert.equal(checkAccess({ key: "geheim" }, env), null);
+});
+
+// Re-Review: Lade-Logik von useSession (createLoader) – Zusammenfassen, Wiederholen, Realtime-Ankünfte.
+
+function harness() {
+  const calls = { fetch: 0, applied: [], fails: [], timers: [], cleared: [] };
+  const pending = [];
+  const loader = createLoader({
+    fetchAll: () => { calls.fetch++; return new Promise((res) => pending.push(res)); },
+    apply: (data, lateP) => calls.applied.push({ data, lateP: [...lateP] }),
+    onFail: (info) => calls.fails.push(info),
+    setTimer: (fn, ms) => { const t = { fn, ms }; calls.timers.push(t); return t; },
+    clearTimer: (t) => { if (t) calls.cleared.push(t); },
+  });
+  const resolveNext = async (r) => { pending.shift()(r); await new Promise((x) => setTimeout(x, 0)); };
+  return { loader, calls, resolveNext };
+}
+const OK = (ids = []) => ({ ok: true, data: { step: 0, participants: ids.map((id) => ({ id })), answers: [] } });
+
+test("Loader: Realtime-Ankunft während des Ladens wird an apply weitergegeben", async () => {
+  const { loader, calls, resolveNext } = harness();
+  loader.load();
+  loader.arrivedParticipant("neu");
+  await resolveNext(OK(["a"]));
+  assert.deepEqual(calls.applied[0].lateP, ["neu"]);
+});
+
+test("Loader: fünf Ladewünsche während eines Ladens ergeben genau ein weiteres Laden", async () => {
+  const { loader, calls, resolveNext } = harness();
+  loader.load();
+  for (let i = 0; i < 5; i++) loader.load();
+  assert.equal(calls.fetch, 1);
+  await resolveNext(OK());
+  assert.equal(calls.fetch, 2);
+  await resolveNext(OK());
+  assert.equal(calls.fetch, 2);
+});
+
+test("Loader: Fehler → Wiederholen nach 1 s, 2 s; Erfolg löscht den wartenden Timer", async () => {
+  const { loader, calls, resolveNext } = harness();
+  loader.load();
+  await resolveNext({ ok: false, notFound: false });
+  assert.equal(calls.timers[0].ms, 1000);
+  assert.equal(loader.firstLoadFailed, true);
+  calls.timers[0].fn();
+  await resolveNext({ ok: false, notFound: false });
+  assert.equal(calls.timers[1].ms, 2000);
+  loader.load(); // z. B. visibilitychange, bevor der Timer feuert
+  await resolveNext(OK());
+  assert.ok(calls.cleared.includes(calls.timers[1]));
+  assert.equal(loader.firstLoadFailed, false);
+});
+
+test("Loader: falscher Code nur beim ersten Laden endgültig, danach wird erneut versucht", async () => {
+  const first = harness();
+  first.loader.load();
+  await first.resolveNext({ ok: false, notFound: true });
+  assert.equal(first.calls.timers.length, 0);
+  assert.equal(first.calls.fails[0].notFound && first.calls.fails[0].firstLoad, true);
+
+  const later = harness();
+  later.loader.load();
+  await later.resolveNext(OK());
+  later.loader.load();
+  await later.resolveNext({ ok: false, notFound: true });
+  assert.equal(later.calls.timers.length, 1);
+  assert.equal(later.calls.fails[0].firstLoad, false);
 });

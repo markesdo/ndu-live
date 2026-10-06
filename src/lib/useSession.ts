@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { supabase } from "./supabase";
-import { backoffMs, mergeRows } from "./session-merge";
+import { createLoader, mergeRows } from "./session-merge";
 
 export type Participant = { id: string; name: string; emoji: string };
 export type Answer = { id: string; participant_id: string; step: number; value: string };
@@ -23,43 +23,39 @@ export function useSession(code: string) {
   useEffect(() => {
     let cancelled = false;
     let subscribedOnce = false;
-    let loadedOnce = false;
-    let retry: ReturnType<typeof setTimeout> | undefined;
-    // Nur das jüngste Laden zählt (Generation), und was währenddessen per Realtime kam, bleibt erhalten.
-    let generation = 0;
-    let attempt = 0;
-    const arrivedP = new Set<string>();
-    const arrivedA = new Set<string>();
 
-    async function load() {
-      const mine = ++generation;
-      arrivedP.clear();
-      arrivedA.clear();
-      const [s, p, a] = await Promise.all([
-        supabase.from("sessions").select("active_step").eq("code", code).single(),
-        supabase.from("participants").select("id,name,emoji").eq("session_code", code).order("created_at"),
-        supabase.from("answers").select("id,participant_id,step,value").eq("session_code", code).order("created_at"),
-      ]);
-      if (cancelled || mine !== generation) return;
-      if (s.error || p.error || a.error) {
-        // PGRST116 = keine Zeile: falscher Code – das ist endgültig. Alles andere ist meist das Netz:
-        // Stand behalten, „Verbinde neu …“ zeigen und mit wachsendem Abstand erneut versuchen.
-        if (s.error?.code === "PGRST116") { setError(`Session „${code}“ gibt es nicht.`); return; }
+    // Lade-Logik (Zusammenfassen, Wiederholen, Realtime-Ankünfte behalten) steckt in createLoader – getestet.
+    const loader = createLoader<Participant, Answer>({
+      fetchAll: async () => {
+        const [s, p, a] = await Promise.all([
+          supabase.from("sessions").select("active_step").eq("code", code).single(),
+          supabase.from("participants").select("id,name,emoji").eq("session_code", code).order("created_at"),
+          supabase.from("answers").select("id,participant_id,step,value").eq("session_code", code).order("created_at"),
+        ]);
+        // PGRST116 = keine Zeile: falscher Code.
+        if (s.error || p.error || a.error) return { ok: false, notFound: s.error?.code === "PGRST116" };
+        return { ok: true, data: { step: s.data.active_step, participants: p.data ?? [], answers: a.data ?? [] } };
+      },
+      apply: (data, lateP, lateA) => {
+        if (cancelled) return;
+        setRefreshFailed(false);
+        setError(null);
+        setStep(data.step);
+        setParticipants((prev) => mergeRows(data.participants, prev, lateP));
+        setAnswers((prev) => mergeRows(data.answers, prev, lateA));
+      },
+      onFail: ({ firstLoad, notFound, attempts }) => {
+        if (cancelled) return;
+        // Falscher Code beim ersten Laden ist endgültig. Sonst: Stand behalten, „Verbinde neu …“, neu versuchen.
+        // Klappt das erste Laden dreimal nicht, zeigen wir den Grund – die Versuche laufen weiter.
+        if (firstLoad && notFound) { setError(`Session „${code}“ gibt es nicht.`); return; }
         setRefreshFailed(true);
-        clearTimeout(retry);
-        retry = setTimeout(load, backoffMs(attempt++));
-        return;
-      }
-      loadedOnce = true;
-      attempt = 0;
-      setRefreshFailed(false);
-      setError(null);
-      setStep(s.data.active_step);
-      const lateP = new Set(arrivedP);
-      const lateA = new Set(arrivedA);
-      setParticipants((prev) => mergeRows(p.data ?? [], prev, lateP));
-      setAnswers((prev) => mergeRows(a.data ?? [], prev, lateA));
-    }
+        if (firstLoad && attempts >= 3) setError("Keine Verbindung zum Server.");
+      },
+      setTimer: (fn, ms) => setTimeout(fn, ms),
+      clearTimer: (t) => clearTimeout(t as ReturnType<typeof setTimeout>),
+    });
+    const load = () => { loader.load(); };
     load();
 
     const channel = supabase
@@ -69,7 +65,7 @@ export function useSession(code: string) {
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "participants", filter: `session_code=eq.${code}` },
         (payload) => {
           const p = payload.new as Participant;
-          arrivedP.add(p.id); // sofort merken, nicht erst im Updater – sonst kann ein laufendes Laden sie verwerfen
+          loader.arrivedParticipant(p.id); // sofort merken, nicht erst im Updater – sonst kann ein laufendes Laden sie verwerfen
           setParticipants((prev) => (prev.some((x) => x.id === p.id) ? prev : [...prev, p]));
         })
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "participants" },
@@ -77,7 +73,7 @@ export function useSession(code: string) {
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "answers", filter: `session_code=eq.${code}` },
         (payload) => {
           const a = payload.new as Answer;
-          arrivedA.add(a.id);
+          loader.arrivedAnswer(a.id);
           setAnswers((prev) => (prev.some((x) => x.id === a.id) ? prev : [...prev, a]));
         })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "reactions", filter: `session_code=eq.${code}` },
@@ -92,7 +88,7 @@ export function useSession(code: string) {
           setChannelDown(false);
           // Nach einem Wiederverbinden verpasste Änderungen nachholen (z. B. der nächste Schritt) –
           // und beim ersten Verbinden, falls das erste Laden gescheitert ist.
-          if (subscribedOnce || !loadedOnce) load();
+          if (subscribedOnce || loader.firstLoadFailed) load();
           subscribedOnce = true;
         } else {
           setLive(false);
@@ -106,7 +102,7 @@ export function useSession(code: string) {
 
     return () => {
       cancelled = true;
-      clearTimeout(retry);
+      loader.stop();
       document.removeEventListener("visibilitychange", onVisible);
       supabase.removeChannel(channel);
     };
