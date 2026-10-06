@@ -8,7 +8,7 @@ QR-Code an der Leinwand, Studierende sind am Handy in 20 Sekunden drin, Ergebnis
 
 1. **Lobby** – QR-Code, Teilnehmende ploppen rein
 2. **Umfrage** – „Wie viel hast du schon programmiert?“
-3. **Umfrage** – „Was macht dir am meisten Respekt?“
+3. **Umfrage** – „Wovor hast du am meisten Respekt?“
 4. **Freitext** – „Was würdest du bauen, wenn du es könntest?“ (Karten fliegen rein – gleichzeitig Ideensammlung für die Hausaufgabe!)
 5. **Finale** – „60 Minuten, keine Zeile Code“ + Emoji-Reaktionen steigen auf
 
