@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { SPOTLIGHT_SCHEMA, parseSpotlight } from "@/lib/ai-shared";
 import { aiError, askJson, gate } from "@/lib/ai-server";
 
+// Vercel darf die Funktion so lange laufen lassen (über dem KI-Zeitlimit); ältere Projekte hätten sonst 10 s.
+export const maxDuration = 30;
+
 // Spotlight: Aus einer Idee wird ein Ein-Satz-Pitch mit drei Akzeptanzkriterien.
 // Gesendet wird nur der Ideentext (Namen entfernt die Leinwand vorher). Zeitlimit 15 s.
 const SYSTEM = `Du hilfst in einem Uni-Kurs, in dem Studierende ohne Programmiererfahrung mit einem KI-Coding-Agenten Web-Apps bauen.

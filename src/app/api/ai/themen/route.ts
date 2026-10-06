@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { THEMEN_SCHEMA, parseThemen } from "@/lib/ai-shared";
 import { aiError, askJson, gate } from "@/lib/ai-server";
 
+// Vercel darf die Funktion so lange laufen lassen (über dem KI-Zeitlimit); ältere Projekte hätten sonst 10 s.
+export const maxDuration = 30;
+
 // Ideen-Landkarte: ordnet die Freitext-Ideen in 3–5 Themen. Gesendet werden nur IDs und Texte, keine Namen.
 const SYSTEM = `Du ordnest App-Ideen von Studierenden in Themen.
 Bilde 3 bis 5 Themen mit kurzen deutschen Titeln (höchstens drei Wörter, z. B. „Campus-Leben“, „Lernen“, „Geld & Wohnen“).
