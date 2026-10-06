@@ -39,6 +39,8 @@ export default function Stage(props: Props) {
   }, []);
 
   const current = STEPS[step] ?? STEPS[0];
+  const stepRef = useRef(step);
+  useEffect(() => { stepRef.current = step; }, [step]);
   const [subRaw, setSub] = useState<Sub>(() => fresh(step));
   const sub = subRaw.step === step ? subRaw : fresh(step);
   const patch = (p: Partial<Sub>) => setSub({ ...sub, ...p });
@@ -53,9 +55,15 @@ export default function Stage(props: Props) {
   const [themenNote, setThemenNote] = useState<string | null>(null);
   const themenBusy = useRef(false);
 
-  function openSpot(id: string) {
-    patch({ spot: id });
-    if (spots[id] || spotBusy.current) return;
+  // Wartet eine Anfrage noch, merkt sich die Leinwand die zuletzt geöffnete Idee und holt sie danach.
+  // Ein „off“ (z. B. vor dem Freischalten) wird beim nächsten Öffnen erneut versucht.
+  const spotWanted = useRef<string | null>(null);
+  const spotsRef = useRef(spots);
+  useEffect(() => { spotsRef.current = spots; }, [spots]);
+  function fetchSpot(id: string) {
+    const known = spotsRef.current[id];
+    if (known && known.status !== "off") return;
+    if (spotBusy.current) { spotWanted.current = id; setSpots((s) => ({ ...s, [id]: { status: "loading" } })); return; }
     const idea = answers.find((a) => a.id === id);
     if (!idea) return;
     spotBusy.current = true;
@@ -63,7 +71,16 @@ export default function Stage(props: Props) {
     ai.spotlight(stripNames(idea.value, names))
       .catch(() => null)
       .then((data) => setSpots((s) => ({ ...s, [id]: data ? { status: "ok", data } : { status: "off" } })))
-      .finally(() => { spotBusy.current = false; });
+      .finally(() => {
+        spotBusy.current = false;
+        const next = spotWanted.current;
+        spotWanted.current = null;
+        if (next && next !== id) { spotsRef.current = { ...spotsRef.current, [next]: { status: "off" } }; fetchSpot(next); }
+      });
+  }
+  function openSpot(id: string) {
+    patch({ spot: id });
+    fetchSpot(id);
   }
 
   function requestThemen() {
@@ -76,7 +93,8 @@ export default function Stage(props: Props) {
     ai.themen(ideas.map((a) => ({ id: a.id, text: stripNames(a.value, names) })))
       .catch(() => null)
       .then((themen) => {
-        if (themen) { setSub((s) => (s.step === forStep ? { ...s, themen } : s)); setThemenNote(null); }
+        // Gespeicherter Zustand kann noch zum vorigen Schritt gehören (nichts hat ihn hier geändert) – dann frisch beginnen.
+        if (themen) { setSub((s) => (stepRef.current !== forStep ? s : { ...(s.step === forStep ? s : fresh(forStep)), themen })); setThemenNote(null); }
         else flashNote("Themen gerade nicht verfügbar.");
       })
       .finally(() => { themenBusy.current = false; });
@@ -97,7 +115,7 @@ export default function Stage(props: Props) {
         e.preventDefault();
         if (sub.spot) return patch({ spot: null });
         if (current.kind === "poll" && current.punchline && !sub.punch) return patch({ punch: true });
-        if (current.kind === "finale" && !sub.hook) return patch({ hook: true });
+        if (current.kind === "finale" && !sub.hook && courseUrl(host)) return patch({ hook: true });
         return go(step + 1);
       }
       if (k === "ArrowLeft") {
@@ -142,7 +160,7 @@ export default function Stage(props: Props) {
                   <IdeaWall title={current.title} ideas={ideas} participants={participants} spotlightId={sub.spot}
                     onSpotlight={openSpot} themen={sub.themen} themenNote={themenNote} />
                 )}
-                {current.kind === "finale" && <Finale title={current.title} ideas={allIdeas} hook={sub.hook} courseUrl={courseUrl(host)} />}
+                {current.kind === "finale" && <Finale title={current.title} ideas={allIdeas} hook={sub.hook && !!courseUrl(host)} courseUrl={courseUrl(host) ?? ""} />}
               </motion.div>
             </AnimatePresence>
           </section>
@@ -178,7 +196,7 @@ export default function Stage(props: Props) {
           <span className="flex gap-2">
             {onUnlock && <button onClick={onUnlock} className="rounded-lg border border-accent px-3 py-1 text-accent">Steuerung freischalten</button>}
             {current.kind === "text" && <button onClick={requestThemen} className="rounded-lg border border-border px-3 py-1">Themen</button>}
-            {current.kind === "finale" && <button onClick={() => patch({ hook: !sub.hook })} className="rounded-lg border border-border px-3 py-1">Kurs-Website</button>}
+            {current.kind === "finale" && courseUrl(host) && <button onClick={() => patch({ hook: !sub.hook })} className="rounded-lg border border-border px-3 py-1">Kurs-Website</button>}
             <button onClick={() => go(step - 1)} className="rounded-lg border border-border px-3 py-1">Zurück</button>
             <button onClick={() => go(step + 1)} className="rounded-lg border border-border px-3 py-1">Weiter</button>
             <button onClick={onReset} className="rounded-lg border border-border px-3 py-1">Reset</button>

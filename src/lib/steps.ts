@@ -35,9 +35,12 @@ export const STEPS: Step[] = [
 // (Nicht beim Build berechnen: Vercel klont nur flach, die Commit-Zahl wäre falsch.)
 export const STACK = { minuten: 60, zeilen: 2073, commits: 12 };
 
-// Kurs-Website für den Abschluss. Ohne Variable: gleicher Rechner, Port 4321 (lokale Website).
-export function courseUrl(hostname: string) {
-  return process.env.NEXT_PUBLIC_COURSE_URL || `http://${hostname}:4321/tag-1`;
+// Kurs-Website für den Abschluss: NEXT_PUBLIC_COURSE_URL (auf Vercel setzen). Ohne Variable nur lokal
+// ein Ersatz – derselbe Rechner, Port 4321. Online ohne Variable gibt es keinen Link (null).
+export function courseUrl(hostname: string): string | null {
+  if (process.env.NEXT_PUBLIC_COURSE_URL) return process.env.NEXT_PUBLIC_COURSE_URL;
+  const local = hostname === "localhost" || hostname === "127.0.0.1" || /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname);
+  return local ? `http://${hostname}:4321/tag-1` : null;
 }
 
 export const EMOJIS = ["🚀", "🔥", "💡", "🎉", "🤯", "❤️", "👏", "🤖"];

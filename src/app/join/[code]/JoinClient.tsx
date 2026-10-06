@@ -364,8 +364,8 @@ export default function JoinClient({ code }: { code: string }) {
             <PrimaryButton onClick={() => sendText(step)}>An die Leinwand</PrimaryButton>
           )}
           {current.kind === "text" && mine !== undefined && !flying && <QuickReactions onReact={react} />}
-          {current.kind === "finale" && (
-            <a href={courseUrl(window.location.hostname)}
+          {current.kind === "finale" && courseUrl(window.location.hostname) && (
+            <a href={courseUrl(window.location.hostname)!}
               className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl border border-border bg-card text-[18px] font-semibold">
               Zur Kurs-Website <span aria-hidden>→</span>
             </a>

@@ -16,6 +16,8 @@ type WallProps = {
 // Freitext-Wand: Karten kommen an; ein Klick holt eine Idee ins Spotlight; „T“ ordnet sie in Themen.
 export function IdeaWall({ title, ideas, participants, spotlightId, onSpotlight, themen, themenNote }: WallProps) {
   const byId = new Map(participants.map((p) => [p.id, p]));
+  // Ideen, die nach dem Gruppieren dazukamen (oder über dem Limit lagen), fallen nicht weg: eigene Spalte.
+  const groups = themen ? withNewcomers(themen, ideas) : null;
   const card = (a: Answer, i: number, n: number) => (
     <IdeaCard key={a.id} a={a} p={byId.get(a.participant_id)} i={i} n={n} hidden={a.id === spotlightId} onClick={() => onSpotlight(a.id)} />
   );
@@ -23,12 +25,12 @@ export function IdeaWall({ title, ideas, participants, spotlightId, onSpotlight,
     <div>
       <h1 className={`mb-[4vh] ${T.h2}`}>{title}</h1>
       {ideas.length === 0 && <p className={`${T.option} text-muted`}>Tippt auf euren Handys …</p>}
-      {themen ? (
-        <div className="grid gap-[2vw]" style={{ gridTemplateColumns: `repeat(${Math.min(themen.length, 4)}, minmax(0, 1fr))` }}>
-          {themen.map((t, ti) => {
+      {groups ? (
+        <div className="grid gap-[2vw]" style={{ gridTemplateColumns: `repeat(${Math.min(groups.length, 4)}, minmax(0, 1fr))` }}>
+          {groups.map((t, ti) => {
             const members = t.ids.map((id) => ideas.find((a) => a.id === id)).filter((a): a is Answer => !!a);
             return (
-              <motion.div key={t.titel} initial={ARRIVE_FROM} animate={ARRIVE_TO} transition={{ ...ARRIVE, delay: stagger(ti, themen.length) }}>
+              <motion.div key={`${ti}-${t.titel}`} initial={ARRIVE_FROM} animate={ARRIVE_TO} transition={{ ...ARRIVE, delay: stagger(ti, groups.length) }}>
                 <h2 className={`mb-4 ${T.meta} uppercase tracking-[0.12em] text-accent`}>{t.titel} · {members.length}</h2>
                 <div className="flex flex-col gap-3">{members.map((a, i) => card(a, i, members.length))}</div>
               </motion.div>
@@ -127,4 +129,10 @@ function Dots() {
       ))}
     </span>
   );
+}
+
+function withNewcomers(themen: Thema[], ideas: Answer[]): Thema[] {
+  const placed = new Set(themen.flatMap((t) => t.ids));
+  const rest = ideas.filter((a) => !placed.has(a.id)).map((a) => a.id);
+  return rest.length ? [...themen, { titel: "Neu dazu", ids: rest }] : themen;
 }
