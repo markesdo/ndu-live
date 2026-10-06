@@ -43,12 +43,12 @@ export function courseUrl(hostname: string): string | null {
   return local ? `http://${hostname}:4321/tag-1` : null;
 }
 
-// Für die Leinwand: dieselbe Website, aber Startseite im Beamer-Modus mit Auftakt-Animation –
-// so geht es nach dem Finale nahtlos auf der Kurs-Website weiter. Das Handy bekommt weiter courseUrl().
+// Für die Leinwand: dieselbe Website, aber die öffentliche Startseite /start im Beamer-Modus (Auftakt-Animation,
+// dann „Weiter“ → Login → Tag 1) – so geht es nach dem Finale nahtlos auf der Kurs-Website weiter.
 export function projectorCourseUrl(url: string): string {
   try {
     const u = new URL(url);
-    return `${u.origin}/?beamer&intro`;
+    return `${u.origin}/start?beamer`;
   } catch {
     return url;
   }
