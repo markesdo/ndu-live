@@ -17,7 +17,7 @@ Fragen und Optionen ändern: `src/lib/steps.ts`.
 ## Einrichten (einmalig, ~15 Minuten)
 
 1. **Supabase-Projekt** anlegen (Region Frankfurt). SQL-Editor → Inhalt von `supabase/schema.sql` ausführen. Das legt Tabellen, Realtime und Policies an und erstellt die Session `ndu`.
-2. **`.env.local`** nach `.env.example` anlegen: URL + anon key (Project Settings → API), **Service-Role-Key** (gleiche Seite, geheim halten) und ein frei gewähltes `PRESENTER_KEY`.
+2. **`.env.local`** nach `.env.example` anlegen: Project URL + **Publishable Key** (`sb_publishable_…`, Project Settings → API Keys), **Secret Key** (`sb_secret_…`, gleiche Seite, geheim halten) und ein frei gewähltes `PRESENTER_KEY`.
 3. Lokal testen: `npm install && npm run dev` → `http://localhost:3000/present/ndu` am Laptop, `http://<deine-IP>:3000/join/ndu` am Handy (gleiches WLAN).
 4. **Vercel:** Repo importieren, die vier Environment-Variablen eintragen, deployen. Fertig: `https://<projekt>.vercel.app/present/ndu`.
 
@@ -29,7 +29,7 @@ Fragen und Optionen ändern: `src/lib/steps.ts`.
 
 ## Sicherheit (bewusst einfach gehalten)
 
-Anonymes Lesen und Anlegen ist erlaubt (es gibt nichts Schützenswertes), Ändern und Löschen nur über die API-Routen mit `PRESENTER_KEY` und Service-Role-Key im Backend. Für eine Demo okay – im Kurs ein gutes Beispiel für die Frage „was dürfte hier ein Fremder tun?“ (Antwort: Spam. Rate Limiting wäre der nächste Schritt.)
+Anonymes Lesen und Anlegen ist erlaubt (es gibt nichts Schützenswertes), Ändern und Löschen nur über die API-Routen mit `PRESENTER_KEY` und Secret Key im Backend. Für eine Demo okay – im Kurs ein gutes Beispiel für die Frage „was dürfte hier ein Fremder tun?“ (Antwort: Spam. Rate Limiting wäre der nächste Schritt.)
 
 ## Ein eigener Durchgang für ein anderes Publikum
 
