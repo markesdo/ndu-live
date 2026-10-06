@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { supabase } from "./supabase";
+import { backoffMs, mergeRows } from "./session-merge";
 
 export type Participant = { id: string; name: string; emoji: string };
 export type Answer = { id: string; participant_id: string; step: number; value: string };
@@ -24,32 +25,40 @@ export function useSession(code: string) {
     let subscribedOnce = false;
     let loadedOnce = false;
     let retry: ReturnType<typeof setTimeout> | undefined;
+    // Nur das jüngste Laden zählt (Generation), und was währenddessen per Realtime kam, bleibt erhalten.
+    let generation = 0;
+    let attempt = 0;
+    const arrivedP = new Set<string>();
+    const arrivedA = new Set<string>();
 
     async function load() {
+      const mine = ++generation;
+      arrivedP.clear();
+      arrivedA.clear();
       const [s, p, a] = await Promise.all([
         supabase.from("sessions").select("active_step").eq("code", code).single(),
         supabase.from("participants").select("id,name,emoji").eq("session_code", code).order("created_at"),
         supabase.from("answers").select("id,participant_id,step,value").eq("session_code", code).order("created_at"),
       ]);
-      if (cancelled) return;
+      if (cancelled || mine !== generation) return;
       if (s.error || p.error || a.error) {
-        if (!loadedOnce) {
-          // PGRST116 = keine Zeile: falscher Code. Alles andere ist meist das Netz.
-          setError(s.error?.code === "PGRST116" ? `Session „${code}“ gibt es nicht.` : "Keine Verbindung zum Server.");
-        } else {
-          // Schon geladen: Stand behalten (sonst wirkt eine leere Liste wie ein Reset), Hinweis zeigen, gleich erneut versuchen.
-          setRefreshFailed(true);
-          clearTimeout(retry);
-          retry = setTimeout(load, 3000);
-        }
+        // PGRST116 = keine Zeile: falscher Code – das ist endgültig. Alles andere ist meist das Netz:
+        // Stand behalten, „Verbinde neu …“ zeigen und mit wachsendem Abstand erneut versuchen.
+        if (s.error?.code === "PGRST116") { setError(`Session „${code}“ gibt es nicht.`); return; }
+        setRefreshFailed(true);
+        clearTimeout(retry);
+        retry = setTimeout(load, backoffMs(attempt++));
         return;
       }
       loadedOnce = true;
+      attempt = 0;
       setRefreshFailed(false);
       setError(null);
       setStep(s.data.active_step);
-      setParticipants(p.data ?? []);
-      setAnswers(a.data ?? []);
+      const lateP = new Set(arrivedP);
+      const lateA = new Set(arrivedA);
+      setParticipants((prev) => mergeRows(p.data ?? [], prev, lateP));
+      setAnswers((prev) => mergeRows(a.data ?? [], prev, lateA));
     }
     load();
 
@@ -58,17 +67,19 @@ export function useSession(code: string) {
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "sessions", filter: `code=eq.${code}` },
         (payload) => setStep((payload.new as { active_step: number }).active_step))
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "participants", filter: `session_code=eq.${code}` },
-        (payload) => setParticipants((prev) => {
+        (payload) => {
           const p = payload.new as Participant;
-          return prev.some((x) => x.id === p.id) ? prev : [...prev, p];
-        }))
+          arrivedP.add(p.id); // sofort merken, nicht erst im Updater – sonst kann ein laufendes Laden sie verwerfen
+          setParticipants((prev) => (prev.some((x) => x.id === p.id) ? prev : [...prev, p]));
+        })
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "participants" },
         () => load())
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "answers", filter: `session_code=eq.${code}` },
-        (payload) => setAnswers((prev) => {
+        (payload) => {
           const a = payload.new as Answer;
-          return prev.some((x) => x.id === a.id) ? prev : [...prev, a];
-        }))
+          arrivedA.add(a.id);
+          setAnswers((prev) => (prev.some((x) => x.id === a.id) ? prev : [...prev, a]));
+        })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "reactions", filter: `session_code=eq.${code}` },
         (payload) => {
           const r = payload.new as Reaction;
@@ -79,8 +90,9 @@ export function useSession(code: string) {
         if (status === "SUBSCRIBED") {
           setLive(true);
           setChannelDown(false);
-          // Nach einem Wiederverbinden verpasste Änderungen nachholen (z. B. der nächste Schritt).
-          if (subscribedOnce) load();
+          // Nach einem Wiederverbinden verpasste Änderungen nachholen (z. B. der nächste Schritt) –
+          // und beim ersten Verbinden, falls das erste Laden gescheitert ist.
+          if (subscribedOnce || !loadedOnce) load();
           subscribedOnce = true;
         } else {
           setLive(false);
