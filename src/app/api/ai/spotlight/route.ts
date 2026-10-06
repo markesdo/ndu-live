@@ -3,7 +3,7 @@ import { SPOTLIGHT_SCHEMA, parseSpotlight } from "@/lib/ai-shared";
 import { aiError, askJson, gate } from "@/lib/ai-server";
 
 // Spotlight: Aus einer Idee wird ein Ein-Satz-Pitch mit drei Akzeptanzkriterien.
-// Gesendet wird nur der Ideentext (Namen entfernt die Leinwand vorher). Zeitlimit 7 s.
+// Gesendet wird nur der Ideentext (Namen entfernt die Leinwand vorher). Zeitlimit 15 s.
 const SYSTEM = `Du hilfst in einem Uni-Kurs, in dem Studierende ohne Programmiererfahrung mit einem KI-Coding-Agenten Web-Apps bauen.
 Du bekommst eine App-Idee in einem Satz. Formuliere daraus:
 - pitch: einen deutschen Satz, was die App für wen tut (höchstens 120 Zeichen).
