@@ -21,31 +21,35 @@ export default function PresentClient({ code }: { code: string }) {
   const stepAnswers = useMemo(() => answers.filter((a) => a.step === step), [answers, step]);
   const byName = useMemo(() => Object.fromEntries(participants.map((p) => [p.id, p])), [participants]);
 
-  async function go(next: number) {
-    if (next < 0 || next >= STEPS.length) return;
-    const res = await fetch("/api/step", { method: "POST", body: JSON.stringify({ code, step: next, key }) });
-    if (res.status === 401) {
-      const k = prompt("Presenter-Key:") ?? "";
-      setKey(k);
-      try { localStorage.setItem("ndu-presenter-key", k); } catch {}
-      if (k) fetch("/api/step", { method: "POST", body: JSON.stringify({ code, step: next, key: k }) });
-    }
+  // Steuer-Aktion, die auf den Key wartet: Der Dialog führt sie mit dem eingegebenen Key aus.
+  const [pending, setPending] = useState<null | ((k: string) => Promise<Response>)>(null);
+  const [confirmReset, setConfirmReset] = useState(false);
+  const dialogOpen = pending !== null || confirmReset;
+
+  const stepRequest = (next: number) => (k: string) =>
+    fetch("/api/step", { method: "POST", body: JSON.stringify({ code, step: next, key: k }) });
+  const resetRequest = (k: string) => fetch("/api/reset", { method: "POST", body: JSON.stringify({ code, key: k }) });
+
+  async function run(action: (k: string) => Promise<Response>) {
+    const res = await action(key);
+    if (res.status === 401) setPending(() => action);
   }
-  async function reset() {
-    if (!confirm("Session zurücksetzen? Alle Teilnehmer und Antworten werden gelöscht.")) return;
-    await fetch("/api/reset", { method: "POST", body: JSON.stringify({ code, key }) });
+  function go(next: number) {
+    if (next < 0 || next >= STEPS.length) return;
+    run(stepRequest(next));
   }
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (step === null) return;
+      if (step === null || dialogOpen) return;
+      if (e.target instanceof HTMLInputElement) return;
       if (e.key === "ArrowRight" || e.key === " ") go(step + 1);
       if (e.key === "ArrowLeft") go(step - 1);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, key]);
+  }, [step, key, dialogOpen]);
 
   if (error) return <div className="grid min-h-screen place-items-center text-muted">{error}</div>;
   if (!current || step === null) return <div className="grid min-h-screen place-items-center text-muted">Verbinde …</div>;
@@ -160,12 +164,102 @@ export default function PresentClient({ code }: { code: string }) {
       <footer className="flex items-center justify-between text-sm text-muted opacity-40 transition hover:opacity-100">
         <span>{step + 1} / {STEPS.length} · ← → zum Blättern</span>
         <span className="flex gap-2">
+          {!key && (
+            <button onClick={() => setPending(() => stepRequest(step))} className="rounded-lg border border-accent px-3 py-1 text-accent">Steuerung freischalten</button>
+          )}
           <button onClick={() => go(step - 1)} className="rounded-lg border border-border px-3 py-1">Zurück</button>
           <button onClick={() => go(step + 1)} className="rounded-lg border border-border px-3 py-1">Weiter</button>
-          <button onClick={reset} className="rounded-lg border border-border px-3 py-1">Reset</button>
+          <button onClick={() => setConfirmReset(true)} className="rounded-lg border border-border px-3 py-1">Reset</button>
         </span>
       </footer>
+
+      <AnimatePresence>
+        {pending && (
+          <KeyDialog
+            key="key"
+            onCancel={() => setPending(null)}
+            onSubmit={async (k) => {
+              const res = await pending(k);
+              if (res.status === 401) return false;
+              setKey(k);
+              try { localStorage.setItem("ndu-presenter-key", k); } catch {}
+              setPending(null);
+              return true;
+            }}
+          />
+        )}
+        {confirmReset && (
+          <Dialog key="reset" label="Session" title="Zurücksetzen?" onCancel={() => setConfirmReset(false)}>
+            <p className="mb-8 text-lg text-muted">Alle Teilnehmer, Antworten und Reaktionen dieser Session werden gelöscht. Danach steht die Leinwand wieder bei Schritt 1.</p>
+            <div className="flex justify-end gap-3">
+              <button onClick={() => setConfirmReset(false)} className="rounded-xl border border-border px-5 py-3 text-lg">Abbrechen</button>
+              <button autoFocus onClick={() => { setConfirmReset(false); run(resetRequest); }} className="rounded-xl bg-accent px-5 py-3 text-lg font-semibold text-accent-ink">Zurücksetzen</button>
+            </div>
+          </Dialog>
+        )}
+      </AnimatePresence>
     </main>
     </MotionConfig>
+  );
+}
+
+// Gestalteter Dialog statt prompt()/confirm(): gleiche Schrift und Farben wie die Bühne, Esc schließt.
+function Dialog({ label, title, onCancel, children }: { label: string; title: string; onCancel: () => void; children: React.ReactNode }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onCancel(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onCancel]);
+  return (
+    <motion.div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-6 backdrop-blur-sm"
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onCancel}>
+      <motion.div role="dialog" aria-modal="true" aria-labelledby="dlg-title" onClick={(e) => e.stopPropagation()}
+        initial={{ y: 24, scale: 0.97, opacity: 0 }} animate={{ y: 0, scale: 1, opacity: 1 }} exit={{ y: 12, opacity: 0 }}
+        transition={{ type: "spring", stiffness: 420, damping: 32 }}
+        className="w-full max-w-md rounded-3xl border border-border bg-card p-8 shadow-2xl">
+        <p className="mb-2 font-mono text-xs uppercase tracking-[0.14em] text-muted">{label}</p>
+        <h2 id="dlg-title" className="mb-4 text-3xl font-bold">{title}</h2>
+        {children}
+      </motion.div>
+    </motion.div>
+  );
+}
+
+function KeyDialog({ onSubmit, onCancel }: { onSubmit: (k: string) => Promise<boolean>; onCancel: () => void }) {
+  const [value, setValue] = useState("");
+  const [show, setShow] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [wrong, setWrong] = useState(0);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!value || busy) return;
+    setBusy(true);
+    const ok = await onSubmit(value).catch(() => false);
+    setBusy(false);
+    if (!ok) setWrong((n) => n + 1);
+  }
+
+  return (
+    <Dialog label="Presenter" title="Steuerung freischalten" onCancel={onCancel}>
+      <p className="mb-6 text-lg text-muted">Der Key steht in <span className="font-mono text-fg">.env.local</span> unter <span className="font-mono text-fg">PRESENTER_KEY</span>. Einmal eingeben – dieser Browser merkt ihn sich.</p>
+      <form onSubmit={submit}>
+        <motion.div key={wrong} animate={wrong ? { x: [0, -8, 8, -5, 5, 0] } : undefined} transition={{ duration: 0.3 }}
+          className="mb-2 flex items-center rounded-xl border-2 border-border bg-bg focus-within:border-accent">
+          <input autoFocus type={show ? "text" : "password"} value={value} onChange={(e) => setValue(e.target.value)}
+            aria-label="Presenter-Key" autoComplete="off" spellCheck={false}
+            className="w-full bg-transparent px-4 py-3 font-mono text-lg ring-im-rahmen outline-none" />
+          <button type="button" onClick={() => setShow((s) => !s)} className="px-4 text-sm text-muted hover:text-fg">{show ? "Verbergen" : "Zeigen"}</button>
+        </motion.div>
+        <p className="mb-6 h-5 text-sm text-accent" aria-live="polite">{wrong ? "Falscher Key – nochmal versuchen." : ""}</p>
+        <div className="flex justify-end gap-3">
+          <button type="button" onClick={onCancel} className="rounded-xl border border-border px-5 py-3 text-lg">Abbrechen</button>
+          <button type="submit" disabled={!value || busy} aria-busy={busy}
+            className="rounded-xl bg-accent px-5 py-3 text-lg font-semibold text-accent-ink disabled:bg-card-2 disabled:text-muted">
+            {busy ? "Prüfe …" : "Freischalten"}
+          </button>
+        </div>
+      </form>
+    </Dialog>
   );
 }

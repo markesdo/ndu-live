@@ -47,6 +47,8 @@ body {
 h1, h2 { font-family: var(--nf-display), ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.02em; }
 
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Felder, deren Rahmen selbst den Fokus zeigt (focus-within am Container): kein zweiter Ring. */
+.ring-im-rahmen:focus-visible { outline: none; }
 
 /* Kennzeichnung „live“: pulsierender Punkt */
 @keyframes live-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .45; transform: scale(.8); } }
