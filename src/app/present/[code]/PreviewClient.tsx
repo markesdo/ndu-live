@@ -2,15 +2,14 @@
 // Nur für die Entwicklung (page.tsx lässt die Vorschau nur bei NODE_ENV development/test zu):
 // zeigt jeden Schritt mit erfundenen Teilnehmenden, ohne die Datenbank anzufassen.
 import { useEffect, useMemo, useState } from "react";
-import { STEPS, EMOJIS } from "@/lib/steps";
+import { STEPS, EMOJIS, AVATARS } from "@/lib/steps";
 import type { Spotlight, Thema } from "@/lib/ai-shared";
 import type { Answer, Participant, Reaction } from "@/lib/useSession";
 import Stage, { type StageAi } from "./Stage";
 
 const NAMES = ["Lena", "Jonas", "Sara", "Max", "Aylin", "Paul", "Mia", "Lukas", "Hannah", "Felix", "Emma", "Tobias",
   "Sophie", "David", "Laura", "Elias", "Nina", "Moritz", "Julia", "Simon", "Clara", "Ben"];
-const VIBES = ["🦊", "🐙", "🦉", "🦖", "🚀", "🔮", "🌵", "🍕", "🎧", "🛹", "🧃", "🪐", "⚡", "🧠", "🌶️", "🎲"];
-const PEOPLE: Participant[] = NAMES.map((name, i) => ({ id: `p${i}`, name, emoji: VIBES[(i * 5) % VIBES.length] }));
+const PEOPLE: Participant[] = NAMES.map((name, i) => ({ id: `p${i}`, name, emoji: AVATARS[(i * 5) % AVATARS.length] }));
 
 const POLL1 = [11, 6, 3, 1];
 const POLL2 = [6, 7, 5, 2];
@@ -25,8 +24,16 @@ const IDEAS = [
   "Events am Campus mit einem Klick zusagen",
   "Gemeinsam kochen: wer hat was im Kühlschrank",
 ];
+// Für ?vorschau=themen: so viele Ideen wie in einem vollen Hörsaal, damit die Themen-Ansicht unter Last zu sehen ist.
+const MORE_IDEAS = [
+  "Second-Hand-Börse für Uni-Kleidung", "Schlafplatz-Tausch für Gastvorträge", "Sport-Partner für Laufen und Klettern",
+  "Prüfungs-Countdown mit Lernplan", "Raumbuchung für Gruppenarbeiten", "Anonyme Fragen an Vortragende",
+  "Rezepte aus Mensa-Resten", "Fahrrad-Reparatur unter Studierenden", "Sprachtandem finden",
+  "Abstimmung über das nächste Semesterfest", "Spinde teilen und tauschen", "Nachhilfe gegen Kaffee",
+  "Bibliotheks-Lärmampel", "Pflanzen-Gießdienst im Wohnheim", "Fundbüro am Campus", "Druckerstatus in Echtzeit",
+];
 
-function answersFor(): Answer[] {
+function answersFor(many = false): Answer[] {
   const out: Answer[] = [];
   const addPoll = (step: number, counts: number[]) => {
     let p = 0;
@@ -34,15 +41,15 @@ function answersFor(): Answer[] {
   };
   addPoll(1, POLL1);
   addPoll(2, POLL2);
-  IDEAS.forEach((value, i) => out.push({ id: `idea${i}`, participant_id: PEOPLE[i * 2].id, step: 3, value }));
+  (many ? [...IDEAS, ...MORE_IDEAS] : IDEAS).forEach((value, i) => out.push({ id: `idea${i}`, participant_id: PEOPLE[(i * 2) % PEOPLE.length].id, step: 3, value }));
   return out;
 }
 
-const KINDS: Record<string, number> = { lobby: 0, poll: 1, poll2: 2, text: 3, finale: 4 };
+const KINDS: Record<string, number> = { lobby: 0, poll: 1, poll2: 2, text: 3, themen: 3, finale: 4 };
 
 export default function PreviewClient({ code, vorschau }: { code: string; vorschau: string }) {
   const [step, setStep] = useState(KINDS[vorschau] ?? 0);
-  const all = useMemo(() => answersFor(), []);
+  const all = useMemo(() => answersFor(vorschau === "themen"), [vorschau]);
   // Ankünfte und Stimmen nach und nach, damit Begrüßung und Schwarm zu sehen sind.
   const [tick, setTick] = useState(0);
   useEffect(() => { const t = setInterval(() => setTick((n) => n + 1), 700); return () => clearInterval(t); }, []);
@@ -70,6 +77,11 @@ export default function PreviewClient({ code, vorschau }: { code: string; vorsch
     themen: async (ideen): Promise<Thema[]> => {
       await new Promise((r) => setTimeout(r, 900));
       const ids = ideen.map((i) => i.id);
+      if (ids.length > 12) {
+        // Volle Last: sechs Themen, drei Ideen bleiben übrig („Neu dazu“).
+        const titel = ["Lernen", "Campus-Leben", "Wohnen & Alltag", "Essen", "Mobilität", "Gemeinschaft"];
+        return titel.map((t, k) => ({ titel: t, ids: ids.slice(0, 22).filter((_, i) => i % 6 === k) }));
+      }
       return [
         { titel: "Lernen", ids: ids.filter((_, i) => [0, 2, 6].includes(i)) },
         { titel: "Campus-Leben", ids: ids.filter((_, i) => [3, 5, 7].includes(i)) },
