@@ -78,8 +78,11 @@ export default function PresentClient({ code }: { code: string }) {
               const res = await pending(k).catch(() => null);
               if (!res) return "offline"; // keine Antwort: Key ungeprüft, nicht speichern
               if (res.status === 401) return "wrong";
-              // Jede andere Antwort heißt: Key angenommen. Speichern – auch wenn der Schritt selbst scheiterte
-              // (500 bei Datenbankfehler, 429), sonst ließe sich die Leinwand gar nicht freischalten.
+              // Key gilt nur als angenommen, wenn unsere Route nach der Key-Prüfung geantwortet hat: 2xx, oder
+              // ihr eigener 500 mit JSON-Fehler (Datenbankfehler). 429/502/504 kommen von der Plattform davor –
+              // dann ist der Key ungeprüft und wird nicht gespeichert.
+              const fromRoute = res.ok || (res.status === 500 && (res.headers.get("content-type") ?? "").includes("application/json"));
+              if (!fromRoute) return "offline";
               setKey(k);
               try { localStorage.setItem("ndu-presenter-key", k); } catch {}
               setPending(null);

@@ -37,7 +37,8 @@ export function IdeaWall({ title, ideas, participants, spotlightId, onSpotlight,
             const isOpen = openGroup === gid;
             const collapsed = openGroup !== null && !isOpen && groups.some((g, gi) => `${gi}-${g.titel}` === openGroup);
             const max = isOpen ? 9 : themenRows(groups.length) === 1 ? 6 : 3;
-            const shown = collapsed ? [] : members.slice(0, members.length > max ? max - 1 : max);
+            // Geöffnete Gruppe zeigt alle Ideen – sonst wären die übrigen nie anklickbar.
+            const shown = collapsed ? [] : isOpen ? members : members.slice(0, members.length > max ? max - 1 : max);
             const rest = members.length - shown.length;
             return (
               <motion.div key={gid} data-thema initial={ARRIVE_FROM} animate={ARRIVE_TO} transition={{ ...ARRIVE, delay: stagger(ti, groups.length) }}>
