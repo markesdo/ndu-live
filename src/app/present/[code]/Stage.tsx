@@ -135,7 +135,7 @@ export default function Stage(props: Props) {
         return go(step - 1);
       }
       if ((k === "h" || k === "H") && current.kind === "finale") return patch({ hook: !sub.hook });
-      if (k === "Enter" && sub.hook && courseUrl(host)) { window.location.href = projectorCourseUrl(courseUrl(host)!); return; }
+      if (k === "Enter" && sub.hook && courseUrl(host)) { e.preventDefault(); window.location.href = projectorCourseUrl(courseUrl(host)!); return; }
       if ((k === "t" || k === "T") && current.kind === "text") return requestThemen();
     };
     window.addEventListener("keydown", onKey);
