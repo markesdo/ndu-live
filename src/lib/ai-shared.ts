@@ -53,7 +53,7 @@ export function parseSpotlight(raw: unknown): Spotlight | null {
   const pitch = o.pitch.trim();
   const kriterien = o.kriterien.filter((k): k is string => typeof k === "string").map((k) => k.trim()).filter(Boolean);
   if (!pitch || kriterien.length < 3) return null;
-  return { pitch: clip(pitch, 140), kriterien: kriterien.slice(0, 3).map((k) => clip(k, 90)) };
+  return { pitch: clip(pitch, 160), kriterien: kriterien.slice(0, 3).map((k) => clip(k, 140)) };
 }
 
 // Prüft die Themen: nur bekannte IDs, jede höchstens einmal, 2–5 Themen. Übrige Ideen landen in „Weitere Ideen“.

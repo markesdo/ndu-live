@@ -76,7 +76,7 @@ export function SpotlightView({ idea, author, spot, onClose }: { idea: Answer; a
           className="rounded-2xl border border-accent bg-card-2 px-[2.4vw] py-[2.4vh] font-mono text-[clamp(18px,1.6vw,30px)] leading-relaxed">
           <p className="mb-3 text-muted">Das ist schon eine Spezifikation. Mehr braucht Claude Code nicht.</p>
           <p><span className="text-accent">claude ›</span> <TypeLine text={`Bau mir: ${idea.value}`} delay={0.5} caret={spot.status !== "ok"} /></p>
-          {spot.status === "loading" && <p className="mt-3 text-muted">… formuliert Pitch und Kriterien</p>}
+          {spot.status === "loading" && <p className="mt-3 flex items-center gap-3 text-muted">Claude schreibt die Spezifikation <Dots /></p>}
           {spot.status === "off" && <p className="mt-3 text-ok">Das reicht als Spec.</p>}
           {spot.status === "ok" && spot.data && (
             <div className="mt-4 space-y-2">
@@ -113,6 +113,18 @@ function TypeLine({ text, delay = 0, caret = false }: { text: string; delay?: nu
       {shown}
       {caret && <span className="caret ml-0.5 inline-block h-[1em] w-[0.55em] translate-y-[0.15em] bg-accent" aria-hidden />}
       <span className="sr-only">{text.slice(shown.length)}</span>
+    </span>
+  );
+}
+
+// Drei pulsierende Punkte, solange Claude schreibt
+function Dots() {
+  return (
+    <span className="inline-flex gap-1.5" aria-hidden>
+      {[0, 1, 2].map((i) => (
+        <motion.span key={i} className="h-2 w-2 rounded-full bg-accent"
+          animate={{ opacity: [0.25, 1, 0.25] }} transition={{ repeat: Infinity, duration: 1.1, delay: i * 0.18 }} />
+      ))}
     </span>
   );
 }

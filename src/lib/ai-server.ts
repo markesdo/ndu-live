@@ -3,8 +3,9 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextResponse } from "next/server";
 import { allowCall } from "./ai-shared";
 
-// Schnelles Modell für kurze Aufgaben auf der Bühne.
-export const AI_MODEL = "claude-haiku-4-5-20251001";
+// Gemessen mit demselben Prompt: Sonnet 5.5 ist so schnell wie Haiku 4.5 (≈2,5 s), schreibt aber
+// prüfbare Kriterien im richtigen Format.
+export const AI_MODEL = "claude-sonnet-5-5";
 
 type Gate = { ok: true; body: Record<string, unknown> } | { ok: false; res: NextResponse };
 
@@ -26,13 +27,23 @@ export async function gate(req: Request, route: string, perMinute: number): Prom
 // Ein Aufruf mit strukturierter Ausgabe. Wirft bei Zeitüberschreitung, Ablehnung oder fehlendem Text –
 // die Route antwortet dann mit einem Fehler, und die Leinwand bleibt beim Ohne-KI-Stand.
 export async function askJson(opts: { system: string; user: string; schema: Record<string, unknown>; timeoutMs: number; maxTokens: number }) {
-  const client = new Anthropic({ timeout: opts.timeoutMs, maxRetries: 0 });
-  const res = await client.messages.create({
+  // Org-weite Schlüssel brauchen eine Workspace-ID (sonst 400) – optional aus ANTHROPIC_WORKSPACE_ID.
+  const workspace = process.env.ANTHROPIC_WORKSPACE_ID;
+  const client = new Anthropic({
+    timeout: opts.timeoutMs,
+    maxRetries: 0,
+    ...(workspace ? { defaultHeaders: { "anthropic-workspace-id": workspace } } : {}),
+  });
+  // Strukturierte Ausgabe: nur passendes JSON, keine Code-Zäune. Niedriger Aufwand hält es kurz.
+  // fallbacks: "default" – lehnt das Modell ab, springt serverseitig ein anderes ein (statt leerer Leinwand).
+  const res = await client.beta.messages.create({
     model: AI_MODEL,
     max_tokens: opts.maxTokens,
     system: opts.system,
     messages: [{ role: "user", content: opts.user }],
-    output_config: { format: { type: "json_schema", schema: opts.schema } },
+    output_config: { effort: "low", format: { type: "json_schema", schema: opts.schema } },
+    betas: ["server-side-fallback-2026-07-01"],
+    fallbacks: "default",
   });
   if (res.stop_reason === "refusal" || res.stop_reason === "max_tokens") throw new Error(`stop: ${res.stop_reason}`);
   const text = res.content.find((b) => b.type === "text");

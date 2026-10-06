@@ -15,10 +15,10 @@ test("Spotlight: weniger als drei Kriterien, kaputtes JSON oder falsche Typen er
   assert.equal(parseSpotlight({ pitch: "  ", kriterien: ["a", "b", "c"] }), null);
 });
 
-test("Spotlight: zu lange Kriterien werden auf 90 Zeichen gekürzt", () => {
+test("Spotlight: zu lange Kriterien werden auf 140 Zeichen gekürzt", () => {
   const lang = "x".repeat(200);
   const r = parseSpotlight({ pitch: "p", kriterien: [lang, "b", "c"] });
-  assert.equal(r.kriterien[0].length, 90);
+  assert.equal(r.kriterien[0].length, 140);
   assert.ok(r.kriterien[0].endsWith("…"));
 });
 
