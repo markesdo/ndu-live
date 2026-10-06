@@ -92,6 +92,15 @@ export function stripNames(text: string, names: string[]) {
   return out;
 }
 
+// Wer darf die KI auslösen? Nur die Leinwand mit PRESENTER_KEY (401), und nur wenn ein API-Key
+// eingerichtet ist (503). null = frei. Reihenfolge bewusst: Fremde erfahren nicht, ob KI eingerichtet ist.
+export function checkAccess(body: unknown, env: { PRESENTER_KEY?: string; ANTHROPIC_API_KEY?: string }): 401 | 503 | null {
+  const key = body && typeof body === "object" ? (body as { key?: unknown }).key : undefined;
+  if (!env.PRESENTER_KEY || typeof key !== "string" || key !== env.PRESENTER_KEY) return 401;
+  if (!env.ANTHROPIC_API_KEY) return 503;
+  return null;
+}
+
 // Einfache Bremse pro Route und Server-Instanz: höchstens `max` Aufrufe pro Minute.
 const calls = new Map<string, number[]>();
 export function allowCall(route: string, max: number, now = Date.now()) {
