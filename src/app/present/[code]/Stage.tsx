@@ -157,10 +157,10 @@ export default function Stage(props: Props) {
         </LayoutGroup>
 
         {/* Reaktionen steigen auf: nur transform/opacity, höchstens 25 gleichzeitig, bei reduzierter Bewegung aus */}
-        {!reduce && (
-          <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden" aria-hidden>
+        {/* Container immer rendern (sonst weicht das Server-HTML ab), bei reduzierter Bewegung bleibt er leer. */}
+        <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden" aria-hidden>
             <AnimatePresence>
-              {reactions.slice(-25).map((r) => {
+              {(reduce ? [] : reactions.slice(-25)).map((r) => {
                 const seed = spread(r.id);
                 return (
                   <motion.span key={r.id} className="absolute bottom-0 text-[clamp(40px,3.6vw,72px)]" style={{ left: `${(seed % 90) + 5}vw` }}
@@ -170,8 +170,7 @@ export default function Stage(props: Props) {
                 );
               })}
             </AnimatePresence>
-          </div>
-        )}
+        </div>
 
         {/* Steuerung (dezent) */}
         <footer className="relative z-10 flex items-center justify-between text-sm text-muted opacity-40 transition hover:opacity-100">

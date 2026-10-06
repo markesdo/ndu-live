@@ -1,25 +1,24 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
-import { AnimatePresence, MotionConfig, motion, useAnimate } from "motion/react";
+import { AnimatePresence, MotionConfig, motion, useAnimate, useReducedMotion } from "motion/react";
 import { supabase } from "@/lib/supabase";
 import { useSession, type Participant } from "@/lib/useSession";
-import { AVATARS, EMOJIS, STEPS } from "@/lib/steps";
+import { AVATARS, AVATAR_NAMES, EMOJIS, EMOJI_NAMES, STEPS, courseUrl } from "@/lib/steps";
+import { ringColor } from "@/lib/avatar";
 
 type Me = { id: string; name: string; emoji: string };
 
-const AVATAR_NAMES: Record<string, string> = {
-  "🦊": "Fuchs", "🐼": "Panda", "🦉": "Eule", "🐙": "Krake", "🦄": "Einhorn", "🐸": "Frosch",
-  "🐧": "Pinguin", "🦋": "Schmetterling", "🐝": "Biene", "🦁": "Löwe", "🐨": "Koala", "🦖": "Dinosaurier",
-};
-const EMOJI_NAMES: Record<string, string> = {
-  "🚀": "Rakete", "🔥": "Feuer", "💡": "Glühbirne", "🎉": "Konfetti",
-  "🤯": "Kopf explodiert", "❤️": "Herz", "👏": "Applaus", "🤖": "Roboter",
-};
+// Schnelle Reaktionen nach dem Abstimmen – die Wartezeit wird zum Mitspielen.
+const QUICK = ["🔥", "🤯", "👏", "❤️"];
 
 // Federn für alles, was auf Berührung reagiert; ruhige Kurve für Schrittwechsel.
 const SPRING = { type: "spring", stiffness: 500, damping: 30 } as const;
 const EASE = [0.2, 0, 0, 1] as const;
 const SHAKE = { x: [0, -6, 6, -4, 4, 0] };
+
+// Uhr und Zufall nur in Ereignis-Handlern (nie beim Rendern) – ausgelagert, damit der Linter das sieht.
+const clock = () => Date.now();
+const jitter = () => Math.random();
 
 // Vibration gibt es nur in Chrome auf Android; anderswo passiert einfach nichts.
 function buzz(pattern: number | number[]) {
@@ -44,6 +43,7 @@ export default function JoinClient({ code }: { code: string }) {
   const sending = useRef(new Set<number | "join">());
   const nameRef = useRef<HTMLInputElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
+  const reduce = useReducedMotion();
   const [nameScope, animateName] = useAnimate();
   const [textScope, animateText] = useAnimate();
 
@@ -155,19 +155,28 @@ export default function JoinClient({ code }: { code: string }) {
     else setFlying(null);
   }
 
+  // Reaktionen bremsen: höchstens eine alle 300 ms und drei gleichzeitig unterwegs – sonst erzeugen
+  // 30 Handys im WLAN eine Lawine (jede Reaktion geht an alle Geräte).
+  const lastReact = useRef(0);
+  const inFlight = useRef(0);
   function react(e: string, el: HTMLElement) {
-    const r = el.getBoundingClientRect();
+    const now = clock();
+    if (now - lastReact.current < 300 || inFlight.current >= 3) return;
+    lastReact.current = now;
     buzz(15);
-    // eslint-disable-next-line react-hooks/purity
-    const base = Date.now() + Math.random();
-    const parts = [0, 1, 2].map((i) => ({
-      id: base + i, e, x: r.left + r.width / 2, y: r.top,
-       
-      dx: Math.round((Math.random() - 0.5) * 40),
-    }));
-    setBurst((b) => [...b, ...parts]);
-    setTimeout(() => setBurst((b) => b.filter((x) => !parts.some((p) => p.id === x.id))), 1300);
-    supabase.from("reactions").insert({ session_code: code, emoji: e }).then(() => {});
+    if (!reduce) {
+      const r = el.getBoundingClientRect();
+      const base = now + jitter();
+      const parts = [0, 1, 2].map((i) => ({
+        id: base + i, e, x: r.left + r.width / 2, y: r.top,
+        dx: Math.round((jitter() - 0.5) * 40),
+      }));
+      setBurst((b) => [...b, ...parts]);
+      setTimeout(() => setBurst((b) => b.filter((x) => !parts.some((p) => p.id === x.id))), 1300);
+    }
+    inFlight.current++;
+    Promise.resolve(supabase.from("reactions").insert({ session_code: code, emoji: e }))
+      .finally(() => { inFlight.current--; });
   }
 
   // Verbindungsaufbau und Fehler
@@ -199,18 +208,21 @@ export default function JoinClient({ code }: { code: string }) {
         <Shell header={<Header count={participants.length} live={live} />} reconnecting={reconnecting}>
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.22, ease: EASE }} className="pt-6">
             <h1 className="mb-1 text-[32px] font-bold leading-[1.05]">Wer bist du?</h1>
-            <p className="mb-5 text-[17px] text-muted">Tier aussuchen, Vorname, fertig.</p>
+            <p className="mb-5 text-[17px] text-muted">Such dir deinen Vibe. Vorname. Fertig.</p>
 
-            <div role="radiogroup" aria-label="Avatar" className="mb-5 grid grid-cols-4 gap-3">
+            <div role="radiogroup" aria-label="Avatar" className="mb-5 grid grid-cols-4 gap-2.5">
               {AVATARS.map((a) => {
                 const selected = emoji === a;
+                // Sobald ein Name dasteht, zeigt der Rahmen schon die eigene Ringfarbe (wie auf der Leinwand).
+                const ring = name.trim() ? ringColor(name) : "var(--accent)";
                 return (
                   <button key={a} type="button" role="radio" aria-checked={selected} aria-label={AVATAR_NAMES[a] ?? a}
                     onClick={() => { setEmoji(a); buzz(10); }}
-                    className="relative grid h-16 place-items-center rounded-2xl border border-border bg-card text-[32px]">
+                    className="relative grid h-14 place-items-center rounded-2xl border border-border bg-card text-[28px]">
                     {selected && (
                       <motion.span layoutId="avatar-ring" transition={SPRING}
-                        className="absolute inset-0 rounded-2xl border-2 border-accent bg-accent/15" />
+                        style={{ borderColor: ring, backgroundColor: `color-mix(in srgb, ${ring} 15%, transparent)` }}
+                        className="absolute inset-0 rounded-2xl border-2 transition-colors duration-300" />
                     )}
                     <motion.span layoutId={selected ? "me-avatar" : undefined} animate={{ scale: selected ? 1.15 : 1 }} transition={SPRING} className="relative">
                       {a}
@@ -226,7 +238,7 @@ export default function JoinClient({ code }: { code: string }) {
                 onKeyDown={(e) => e.key === "Enter" && join()}
                 placeholder="Vorname" aria-label="Vorname" maxLength={24}
                 autoCapitalize="words" autoComplete="given-name" enterKeyHint="go"
-                className="h-14 w-full rounded-2xl border border-border bg-card px-4 text-[18px] outline-none placeholder:text-muted focus:border-accent"
+                className="ring-im-rahmen h-14 w-full rounded-2xl border border-border bg-card px-4 text-[18px] outline-none placeholder:text-muted focus:border-accent"
               />
             </div>
 
@@ -252,7 +264,7 @@ export default function JoinClient({ code }: { code: string }) {
 
             {current.kind === "lobby" && (
               <div className="relative">
-                {justJoined && <Confetti />}
+                {justJoined && !reduce && <Confetti />}
                 <h1 className="mb-2 text-[32px] font-bold leading-[1.05]">
                   {rejoined && !justJoined ? "Willkommen zurück," : "Du bist drin,"}<br />{me.name}.
                 </h1>
@@ -305,14 +317,14 @@ export default function JoinClient({ code }: { code: string }) {
                       <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={SPRING}
                         className="rounded-2xl border border-accent bg-accent/15 px-4 py-4 text-[18px]">
                         „{mine}“
-                        <p className="mt-2 text-sm text-muted"><span aria-hidden>📺 </span>Ist auf der Leinwand.</p>
+                        <p className="mt-2 text-sm text-muted"><span aria-hidden>📺 </span>{current.after}</p>
                       </motion.div>
                     )
                   ) : (
                     <div ref={textScope}>
                       <textarea ref={textRef} value={text} onChange={(e) => setText(e.target.value)} placeholder={current.placeholder}
                         aria-label={current.title} maxLength={80} rows={4} enterKeyHint="send"
-                        className="w-full resize-none rounded-2xl border border-border bg-card px-4 py-3 text-[18px] outline-none placeholder:text-muted focus:border-accent" />
+                        className="ring-im-rahmen w-full resize-none rounded-2xl border border-border bg-card px-4 py-3 text-[18px] outline-none placeholder:text-muted focus:border-accent" />
                       <div className={`mt-1 text-right font-mono text-sm ${text.length >= 70 ? "text-accent" : "text-muted"}`}>{text.length}/80</div>
                     </div>
                   )}
@@ -342,17 +354,21 @@ export default function JoinClient({ code }: { code: string }) {
 
         <Footer>
           <Notice text={notice} />
-          {current.kind === "poll" && (
-            <AnimatePresence>
-              {mine !== undefined && (
-                <motion.p initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="text-center text-[15px] text-muted">
-                  Gesendet · Ergebnis auf der Leinwand
-                </motion.p>
-              )}
-            </AnimatePresence>
+          {current.kind === "poll" && mine !== undefined && (
+            <>
+              <PersonalResult mine={mine} meId={me.id} step={step} answers={answers} participants={participants} />
+              <QuickReactions onReact={react} />
+            </>
           )}
           {current.kind === "text" && mine === undefined && (
             <PrimaryButton onClick={() => sendText(step)}>An die Leinwand</PrimaryButton>
+          )}
+          {current.kind === "text" && mine !== undefined && !flying && <QuickReactions onReact={react} />}
+          {current.kind === "finale" && (
+            <a href={courseUrl(window.location.hostname)}
+              className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl border border-border bg-card text-[18px] font-semibold">
+              Zur Kurs-Website <span aria-hidden>→</span>
+            </a>
           )}
         </Footer>
 
@@ -396,7 +412,10 @@ function Header({ count, live, me }: { count: number | null; live: boolean; me?:
     <header className="flex h-11 items-center justify-between">
       {me ? (
         <span className="flex items-center gap-2 text-[15px] font-semibold">
-          <motion.span layoutId="me-avatar" transition={SPRING} className="text-2xl">{me.emoji}</motion.span>
+          <motion.span layoutId="me-avatar" transition={SPRING}
+            className="grid h-9 w-9 place-items-center rounded-full bg-card text-xl" style={{ boxShadow: `inset 0 0 0 2px ${ringColor(me.name)}` }}>
+            {me.emoji}
+          </motion.span>
           {me.name}
         </span>
       ) : (
@@ -456,7 +475,8 @@ function SocialProof({ others, total }: { others: Participant[]; total: number }
       <span className="flex -space-x-1.5" aria-hidden>
         {others.map((p) => (
           <motion.span key={p.id} initial={{ scale: 0 }} animate={{ scale: 1 }} transition={SPRING}
-            className="grid h-8 w-8 place-items-center rounded-full border-2 border-bg bg-card-2 text-base">{p.emoji}</motion.span>
+            className="grid h-8 w-8 place-items-center rounded-full border-2 border-bg bg-card-2 text-base"
+            style={{ boxShadow: `inset 0 0 0 2px ${ringColor(p.name)}` }}>{p.emoji}</motion.span>
         ))}
       </span>
       <span>{total === 1 ? "1 ist schon da" : `${total} sind schon da`}</span>
@@ -473,7 +493,8 @@ function AvatarWall({ participants, meId }: { participants: Participant[]; meId:
         {shown.map((p) => (
           <motion.span key={p.id} initial={{ scale: 0, rotate: -15 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 500, damping: 14 }}
             title={p.name}
-            className={`grid h-10 w-10 place-items-center rounded-full border text-xl ${p.id === meId ? "border-accent bg-accent/15" : "border-border bg-card"}`}>
+            className={`grid h-10 w-10 place-items-center rounded-full text-xl ${p.id === meId ? "bg-accent/15" : "bg-card"}`}
+            style={{ boxShadow: `inset 0 0 0 ${p.id === meId ? 3 : 2}px ${ringColor(p.name)}` }}>
             {p.emoji}
           </motion.span>
         ))}
@@ -533,5 +554,47 @@ function Connecting() {
         </div>
       </div>
     </Shell>
+  );
+}
+
+// Persönliches Ergebnis nach dem Abstimmen: „Du und 11 andere: Noch nie.“ Zählt live mit.
+function PersonalResult({ mine, meId, step, answers, participants }: { mine: string; meId: string; step: number; answers: { participant_id: string; step: number; value: string }[]; participants: Participant[] }) {
+  const same = answers.filter((a) => a.step === step && a.value === mine && a.participant_id !== meId);
+  const byId = new Map(participants.map((p) => [p.id, p]));
+  const others = same.map((a) => byId.get(a.participant_id)).filter((p): p is Participant => !!p);
+  const n = others.length;
+  return (
+    <motion.div initial={{ opacity: 0, y: 24, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={SPRING}
+      className="rounded-2xl bg-accent/15 px-4 py-3" aria-live="polite">
+      <p className="text-[17px] font-semibold leading-snug">
+        {n === 0 ? <>Bis jetzt nur du: „{mine}“.</> : <>Du und {n} {n === 1 ? "andere Person" : "andere"}: „{mine}“.</>}
+      </p>
+      {n > 0 && (
+        <div className="mt-2 flex items-center gap-1" aria-hidden>
+          {others.slice(0, 10).map((p) => (
+            <motion.span key={p.id} initial={{ scale: 0 }} animate={{ scale: 1 }} transition={SPRING}
+              className="grid h-7 w-7 place-items-center rounded-full bg-card text-sm" style={{ boxShadow: `inset 0 0 0 2px ${ringColor(p.name)}` }}>
+              {p.emoji}
+            </motion.span>
+          ))}
+          {n > 10 && <span className="ml-1 font-mono text-xs text-muted">+{n - 10}</span>}
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+// Kleine Reaktionsreihe im Daumenbereich: Die Wartezeit, bis alle abgestimmt haben, wird zum Mitspielen.
+function QuickReactions({ onReact }: { onReact: (e: string, el: HTMLElement) => void }) {
+  return (
+    <div className="grid grid-cols-4 gap-2" role="group" aria-label="Reagieren">
+      {QUICK.map((e) => (
+        <motion.button key={e} type="button" whileTap={{ scale: 1.25 }} transition={SPRING}
+          aria-label={`Reagieren mit ${EMOJI_NAMES[e] ?? e}`} onClick={(ev) => onReact(e, ev.currentTarget)}
+          className="grid h-12 place-items-center rounded-2xl border border-border bg-card text-[24px]">
+          <span aria-hidden>{e}</span>
+        </motion.button>
+      ))}
+    </div>
   );
 }
