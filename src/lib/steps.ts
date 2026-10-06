@@ -1,8 +1,10 @@
 // Die Schritte der Live-Session. Reihenfolge = active_step in der Tabelle sessions.
+// Zwischenzustände wie Pointe, Spotlight oder Kurs-Hinweis leben nur auf der Leinwand –
+// die Handys sehen sie nie.
 export type Step =
   | { kind: "lobby"; title: string }
-  | { kind: "poll"; title: string; options: string[] }
-  | { kind: "text"; title: string; placeholder: string }
+  | { kind: "poll"; title: string; options: string[]; punchline?: string }
+  | { kind: "text"; title: string; placeholder: string; after: string }
   | { kind: "finale"; title: string };
 
 export const STEPS: Step[] = [
@@ -16,14 +18,38 @@ export const STEPS: Step[] = [
     kind: "poll",
     title: "Was macht dir beim Thema Coding am meisten Respekt?",
     options: ["Das Terminal", "Fehlermeldungen", "Dass ich nichts verstehe", "Gar nichts – los geht's"],
+    punchline: "Alle drei kommen heute vor. Alle drei sind am Ende von Tag 1 kleiner.",
   },
   {
     kind: "text",
     title: "Was würdest du bauen, wenn du es könntest?",
     placeholder: "Eine App, die …",
+    after: "Gespeichert. Am Tag 2 holst du dir deine Idee hier wieder ab.",
   },
   { kind: "finale", title: "Diese App: 60 Minuten, keine Zeile Code." },
 ];
 
+// Zahlen für die Enthüllung im Finale. Vor dem Kurs aktualisieren:
+//   Zeilen:  find src -name '*.ts' -o -name '*.tsx' -o -name '*.css' | xargs cat | wc -l
+//   Commits: git rev-list --count HEAD
+// (Nicht beim Build berechnen: Vercel klont nur flach, die Commit-Zahl wäre falsch.)
+export const STACK = { minuten: 60, zeilen: 2384, commits: 13 };
+
+// Kurs-Website für den Abschluss. Ohne Variable: gleicher Rechner, Port 4321 (lokale Website).
+export function courseUrl(hostname: string) {
+  return process.env.NEXT_PUBLIC_COURSE_URL || `http://${hostname}:4321/tag-1`;
+}
+
 export const EMOJIS = ["🚀", "🔥", "💡", "🎉", "🤯", "❤️", "👏", "🤖"];
-export const AVATARS = ["🦊", "🐼", "🦉", "🐙", "🦄", "🐸", "🐧", "🦋", "🐝", "🦁", "🐨", "🦖"];
+export const EMOJI_NAMES: Record<string, string> = {
+  "🚀": "Rakete", "🔥": "Feuer", "💡": "Glühbirne", "🎉": "Konfetti",
+  "🤯": "Kopf explodiert", "❤️": "Herz", "👏": "Applaus", "🤖": "Roboter",
+};
+
+// „Such dir deinen Vibe“: Tiere und Dinge mit Haltung. Alte Avatare aus früheren Runden werden weiter angezeigt.
+export const AVATARS = ["🦊", "🐙", "🦉", "🦖", "🚀", "🔮", "🌵", "🍕", "🎧", "🛹", "🧃", "🪐", "⚡", "🧠", "🌶️", "🎲"];
+export const AVATAR_NAMES: Record<string, string> = {
+  "🦊": "Fuchs", "🐙": "Krake", "🦉": "Eule", "🦖": "Dinosaurier", "🚀": "Rakete", "🔮": "Kristallkugel",
+  "🌵": "Kaktus", "🍕": "Pizza", "🎧": "Kopfhörer", "🛹": "Skateboard", "🧃": "Saftpackerl", "🪐": "Planet",
+  "⚡": "Blitz", "🧠": "Gehirn", "🌶️": "Chili", "🎲": "Würfel",
+};
