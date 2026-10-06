@@ -14,10 +14,11 @@ export const stagger = (i: number, n: number) => i * Math.min(0.04, 0.6 / Math.m
 export const FLY = { type: "spring", stiffness: 200, damping: 26 } as const;
 
 // Projektor-Schriftgrößen (Leinwand hat genau ein Fenster – vw ist hier Absicht)
+// Größen hängen auch an der Höhe (vh): Beamer mit 1280×720 sollen nicht abschneiden.
 export const T = {
-  h1: "text-[clamp(56px,6.5vw,120px)] font-extrabold leading-[1.02] tracking-[-0.03em]",
+  h1: "text-[clamp(44px,min(6.5vw,11vh),120px)] font-extrabold leading-[1.02] tracking-[-0.03em]",
   h2: "text-[clamp(40px,4.4vw,80px)] font-extrabold leading-[1.05] tracking-[-0.03em]",
-  option: "text-[clamp(28px,2.8vw,48px)]",
+  option: "text-[clamp(22px,min(2.8vw,4.2vh),48px)]",
   meta: "font-mono text-[clamp(14px,1.2vw,22px)]",
 };
 

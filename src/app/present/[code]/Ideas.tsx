@@ -55,8 +55,8 @@ function IdeaCard({ a, p, i, n, hidden, onClick }: { a: Answer; p?: Participant;
       initial={{ opacity: 0, y: 40, scale: 0.85 }} animate={{ opacity: hidden ? 0 : 1, y: 0, scale: 1 }} transition={{ ...ARRIVE, delay: stagger(i, n) }}
       style={{ rotate: ((i * 7) % 5) - 2 }}
       aria-label={`Idee ins Spotlight: ${a.value}`}
-      className="max-w-[26vw] cursor-pointer rounded-2xl border border-border bg-card px-5 py-4 text-left shadow-lg hover:border-accent">
-      <p className="text-[clamp(20px,1.7vw,32px)] leading-snug">„{a.value}“</p>
+      className="max-w-[26vw] cursor-pointer rounded-2xl border border-border bg-card px-[clamp(12px,1.2vw,20px)] py-[clamp(8px,1.4vh,16px)] text-left shadow-lg hover:border-accent">
+      <p className="text-[clamp(16px,min(1.7vw,2.8vh),32px)] leading-snug">„{a.value}“</p>
       {p && <p className={`mt-3 flex items-center gap-2 ${T.meta} text-muted`}><Glyph p={p} size="sm" /> {p.name}</p>}
     </motion.button>
   );

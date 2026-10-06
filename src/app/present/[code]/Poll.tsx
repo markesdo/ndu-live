@@ -28,7 +28,7 @@ export default function Poll({ step, title, options, participants, answers, punc
           const pct = total ? Math.round((100 * n) / total) : 0;
           const leading = leadVisible && n === lead;
           return (
-            <div key={o} className="grid grid-cols-[minmax(0,26vw)_1fr_auto] items-center gap-[2vw]">
+            <div key={o} className="grid grid-cols-[minmax(0,32vw)_1fr_auto] items-center gap-[2vw]">
               <span className={`${T.option} font-semibold leading-tight transition-colors duration-500 ${leading ? "text-accent" : ""}`}>{o}</span>
               {swarm ? (
                 <div className="flex min-h-[clamp(40px,3.2vw,60px)] flex-wrap gap-2">

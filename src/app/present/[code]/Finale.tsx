@@ -35,7 +35,7 @@ export default function Finale({ title, ideas, hook, courseUrl }: { title: strin
               <motion.div key={t.label} initial={ARRIVE_FROM} animate={ARRIVE_TO} transition={{ ...ARRIVE, delay: 0.4 + i * 0.25 }}
                 className="min-w-0 rounded-3xl border border-border bg-card px-4 py-[3vh]">
                 <CountUp to={t.n} delay={0.5 + i * 0.25}
-                  className={`block font-display text-[clamp(48px,5vw,112px)] font-extrabold leading-none tracking-[-0.03em] ${t.accent ? "text-ok" : ""}`} />
+                  className={`block font-display text-[clamp(40px,min(4.2vw,8vh),112px)] whitespace-nowrap font-extrabold leading-none tracking-[-0.03em] ${t.accent ? "text-ok" : ""}`} />
                 <span className={`mt-3 block ${T.meta} uppercase tracking-[0.12em] text-muted`}>{t.label}</span>
               </motion.div>
             ))}
