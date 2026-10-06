@@ -17,7 +17,7 @@ export async function POST(req: Request) {
     .map((i) => ({ id: i.id, text: i.text.slice(0, 200) }));
   if (ideen.length < 4) return NextResponse.json({ error: "Zu wenige Ideen" }, { status: 400 });
   try {
-    const raw = await askJson({ system: SYSTEM, user: JSON.stringify(ideen), schema: THEMEN_SCHEMA, timeoutMs: 12000, maxTokens: 4000 });
+    const raw = await askJson({ system: SYSTEM, user: JSON.stringify(ideen), schema: THEMEN_SCHEMA, timeoutMs: 20000, maxTokens: 4000 });
     const themen = parseThemen(raw, ideen.map((i) => i.id));
     if (!themen) return NextResponse.json({ error: "KI-Antwort unbrauchbar" }, { status: 502 });
     return NextResponse.json({ themen });

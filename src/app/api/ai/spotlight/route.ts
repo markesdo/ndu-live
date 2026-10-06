@@ -16,7 +16,7 @@ export async function POST(req: Request) {
   const text = typeof g.body.text === "string" ? g.body.text.trim().slice(0, 200) : "";
   if (!text) return NextResponse.json({ error: "Kein Text" }, { status: 400 });
   try {
-    const raw = await askJson({ system: SYSTEM, user: text, schema: SPOTLIGHT_SCHEMA, timeoutMs: 7000, maxTokens: 2000 });
+    const raw = await askJson({ system: SYSTEM, user: text, schema: SPOTLIGHT_SCHEMA, timeoutMs: 15000, maxTokens: 2000 });
     const result = parseSpotlight(raw);
     if (!result) return NextResponse.json({ error: "KI-Antwort unbrauchbar" }, { status: 502 });
     return NextResponse.json(result);
