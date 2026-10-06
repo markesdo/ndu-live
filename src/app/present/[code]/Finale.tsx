@@ -1,7 +1,7 @@
 "use client";
 import { AnimatePresence, motion } from "motion/react";
 import { QRCodeSVG } from "qrcode.react";
-import { STACK } from "@/lib/steps";
+import { STACK, projectorCourseUrl } from "@/lib/steps";
 import { ARRIVE, ARRIVE_FROM, ARRIVE_TO, CountUp, T } from "./parts";
 
 const TILES = [
@@ -21,11 +21,15 @@ export default function Finale({ title, ideas, hook, courseUrl }: { title: strin
           <div>
             <h1 className={`mb-6 ${T.h1}`}>Tag 1 beginnt hier.</h1>
             <p className={`${T.option} text-muted`}>Die Kurs-Website – alles, was wir heute machen, steht dort.</p>
-            <p className={`mt-6 ${T.meta} text-muted`}>{courseUrl.replace(/^https?:\/\//, "")}</p>
+            <a href={projectorCourseUrl(courseUrl)} className={`mt-6 inline-flex items-center gap-3 ${T.meta} text-fg underline decoration-accent decoration-2 underline-offset-8 hover:text-accent`}>
+              {courseUrl.replace(/^https?:\/\//, "")} <span aria-hidden>→</span>
+            </a>
+            <p className={`mt-3 ${T.meta} text-muted`}>Klicken oder Enter: weiter auf der Kurs-Website</p>
           </div>
-          <div className="rounded-[48px] bg-white p-[clamp(16px,1.6vw,28px)] shadow-2xl ring-8 ring-blue/25">
+          <a href={projectorCourseUrl(courseUrl)} aria-label="Weiter zur Kurs-Website"
+            className="block rounded-[48px] bg-white p-[clamp(16px,1.6vw,28px)] shadow-2xl ring-8 ring-blue/25 transition-transform hover:scale-[1.02]">
             <QRCodeSVG value={courseUrl} size={360} level="M" className="h-[clamp(240px,24vw,420px)] w-[clamp(240px,24vw,420px)]" />
-          </div>
+          </a>
         </motion.div>
       ) : (
         <motion.div key="stack" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="text-center">
