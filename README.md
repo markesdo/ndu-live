@@ -19,7 +19,11 @@ Fragen und Optionen ändern: `src/lib/steps.ts`.
 1. **Supabase-Projekt** anlegen (Region Frankfurt). SQL-Editor → Inhalt von `supabase/schema.sql` ausführen. Das legt Tabellen, Realtime und Policies an und erstellt die Session `ndu`.
 2. **`.env.local`** nach `.env.example` anlegen: Project URL + **Publishable Key** (`sb_publishable_…`, Project Settings → API Keys), **Secret Key** (`sb_secret_…`, gleiche Seite, geheim halten) und ein frei gewähltes `PRESENTER_KEY`.
 3. Lokal testen: `npm install && npm run dev` → `http://localhost:3000/present/ndu` am Laptop, `http://<deine-IP>:3000/join/ndu` am Handy (gleiches WLAN).
-4. **Vercel:** Repo importieren, die vier Environment-Variablen eintragen, deployen. Fertig: `https://<projekt>.vercel.app/present/ndu`.
+4. **Vercel:** Repo importieren, die vier Pflicht-Variablen eintragen (`NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `PRESENTER_KEY`), dazu optional `ANTHROPIC_API_KEY` (KI-Momente) und `NEXT_PUBLIC_COURSE_URL` (Schluss-QR), deployen. Fertig: `https://<projekt>.vercel.app/present/ndu`.
+
+## Proben ohne Datenbank
+
+Lokal (nur `npm run dev`) zeigt `/present/ndu?vorschau=lobby|poll|poll2|text|finale` jeden Schritt mit erfundenen Daten – ohne Supabase und ohne Presenter-Key. In der Textwand: Karte anklicken = Spotlight, `T` = Themen. Im Finale: `H` = QR zur Kurs-Website.
 
 ## Im Hörsaal
 
