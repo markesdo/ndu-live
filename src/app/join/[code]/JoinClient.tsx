@@ -57,8 +57,9 @@ export default function JoinClient({ code }: { code: string }) {
     try { saved = JSON.parse(raw); } catch { return; }
     let cancelled = false;
     supabase.from("participants").select("id").eq("id", saved.id).maybeSingle().then(({ data, error }) => {
-      if (cancelled || error) return;
-      if (data) { setMe(saved); setRejoined(true); }
+      if (cancelled) return;
+      // Netzfehler: lieber den gemerkten Stand nehmen als ein zweites Mal beitreten lassen.
+      if (data || error) { setMe(saved); setRejoined(true); }
       else { try { localStorage.removeItem(`ndu-live-${code}`); } catch {} }
     });
     return () => { cancelled = true; };
@@ -114,7 +115,9 @@ export default function JoinClient({ code }: { code: string }) {
     setNotice(null);
     const { error } = await supabase.from("answers").insert({ session_code: code, participant_id: me.id, step: s, value: value.slice(0, 80) });
     sending.current.delete(s);
-    if (error) {
+    // 23505 = UNIQUE (participant_id, step) greift: Diese Antwort ist schon gespeichert (z. B. zweites Gerät
+    // oder Doppeltipp). Das ist kein Fehler – die gespeicherte Antwort kommt per Realtime und hat Vorrang.
+    if (error && error.code !== "23505") {
       setLocal((l) => { const n = { ...l }; delete n[s]; return n; });
       setNotice("Nicht angekommen – bitte noch einmal.");
       buzz(30);
