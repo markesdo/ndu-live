@@ -15,11 +15,15 @@ export function useSession(code: string) {
   // false, solange der Realtime-Kanal nicht steht oder abgerissen ist (WLAN weg, Handy im Standby)
   const [live, setLive] = useState(false);
   // true nur nach einem Abriss – beim allerersten Verbinden zeigen wir keinen Hinweis
-  const [reconnecting, setReconnecting] = useState(false);
+  const [channelDown, setChannelDown] = useState(false);
+  // Ein Nachladen (nach Standby/Wiederverbinden) ist gescheitert – der alte Stand bleibt stehen.
+  const [refreshFailed, setRefreshFailed] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     let subscribedOnce = false;
+    let loadedOnce = false;
+    let retry: ReturnType<typeof setTimeout> | undefined;
 
     async function load() {
       const [s, p, a] = await Promise.all([
@@ -28,11 +32,20 @@ export function useSession(code: string) {
         supabase.from("answers").select("id,participant_id,step,value").eq("session_code", code).order("created_at"),
       ]);
       if (cancelled) return;
-      if (s.error) {
-        // PGRST116 = keine Zeile: falscher Code. Alles andere ist meist das Netz.
-        setError(s.error.code === "PGRST116" ? `Session „${code}“ gibt es nicht.` : "Keine Verbindung zum Server.");
+      if (s.error || p.error || a.error) {
+        if (!loadedOnce) {
+          // PGRST116 = keine Zeile: falscher Code. Alles andere ist meist das Netz.
+          setError(s.error?.code === "PGRST116" ? `Session „${code}“ gibt es nicht.` : "Keine Verbindung zum Server.");
+        } else {
+          // Schon geladen: Stand behalten (sonst wirkt eine leere Liste wie ein Reset), Hinweis zeigen, gleich erneut versuchen.
+          setRefreshFailed(true);
+          clearTimeout(retry);
+          retry = setTimeout(load, 3000);
+        }
         return;
       }
+      loadedOnce = true;
+      setRefreshFailed(false);
       setError(null);
       setStep(s.data.active_step);
       setParticipants(p.data ?? []);
@@ -65,13 +78,13 @@ export function useSession(code: string) {
         if (cancelled) return;
         if (status === "SUBSCRIBED") {
           setLive(true);
-          setReconnecting(false);
+          setChannelDown(false);
           // Nach einem Wiederverbinden verpasste Änderungen nachholen (z. B. der nächste Schritt).
           if (subscribedOnce) load();
           subscribedOnce = true;
         } else {
           setLive(false);
-          if (subscribedOnce) setReconnecting(true);
+          if (subscribedOnce) setChannelDown(true);
         }
       });
 
@@ -81,10 +94,11 @@ export function useSession(code: string) {
 
     return () => {
       cancelled = true;
+      clearTimeout(retry);
       document.removeEventListener("visibilitychange", onVisible);
       supabase.removeChannel(channel);
     };
   }, [code]);
 
-  return { step, participants, answers, reactions, error, live, reconnecting };
+  return { step, participants, answers, reactions, error, live, reconnecting: channelDown || refreshFailed };
 }
