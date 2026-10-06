@@ -15,6 +15,7 @@ type WallProps = {
 
 // Freitext-Wand: Karten kommen an; ein Klick holt eine Idee ins Spotlight; „T“ ordnet sie in Themen.
 export function IdeaWall({ title, ideas, participants, spotlightId, onSpotlight, themen, themenNote }: WallProps) {
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
   const byId = new Map(participants.map((p) => [p.id, p]));
   // Ideen, die nach dem Gruppieren dazukamen (oder über dem Limit lagen), fallen nicht weg: eigene Spalte.
   const groups = themen ? withNewcomers(themen, ideas) : null;
@@ -27,19 +28,30 @@ export function IdeaWall({ title, ideas, participants, spotlightId, onSpotlight,
       {ideas.length === 0 && <p className={`${T.option} text-muted`}>Tippt auf euren Handys …</p>}
       {groups ? (
         // Themen-Ansicht unter Last (bis 6 Themen + „Neu dazu“, ~25 Ideen): kompakte Chips, Spalten nach
-        // Anzahl der Gruppen, pro Gruppe höchstens so viele Chips, wie in die Höhe passen – der Rest als „+N“.
+        // Anzahl der Gruppen, pro Gruppe höchstens so viele Chips, wie in die Höhe passen. „+N weitere“
+        // öffnet die Gruppe ganz (die anderen klappen auf ihre Überschrift zu) – so bleibt jede Idee anklickbar.
         <div className="grid gap-x-[2vw] gap-y-[2.4vh]" style={{ gridTemplateColumns: `repeat(${themenCols(groups.length)}, minmax(0, 1fr))` }}>
           {groups.map((t, ti) => {
+            const gid = `${ti}-${t.titel}`;
             const members = t.ids.map((id) => ideas.find((a) => a.id === id)).filter((a): a is Answer => !!a);
-            const max = themenRows(groups.length) === 1 ? 6 : 3;
-            const shown = members.slice(0, members.length > max ? max - 1 : max);
+            const isOpen = openGroup === gid;
+            const collapsed = openGroup !== null && !isOpen && groups.some((g, gi) => `${gi}-${g.titel}` === openGroup);
+            const max = isOpen ? 9 : themenRows(groups.length) === 1 ? 6 : 3;
+            const shown = collapsed ? [] : members.slice(0, members.length > max ? max - 1 : max);
             const rest = members.length - shown.length;
             return (
-              <motion.div key={`${ti}-${t.titel}`} data-thema initial={ARRIVE_FROM} animate={ARRIVE_TO} transition={{ ...ARRIVE, delay: stagger(ti, groups.length) }}>
+              <motion.div key={gid} data-thema initial={ARRIVE_FROM} animate={ARRIVE_TO} transition={{ ...ARRIVE, delay: stagger(ti, groups.length) }}>
                 <h2 className={`mb-[1.2vh] ${T.meta} uppercase tracking-[0.12em] text-accent`}>{t.titel} · {members.length}</h2>
                 <div className="flex flex-col gap-[0.9vh]">
                   {shown.map((a, i) => <IdeaChip key={a.id} a={a} i={i} n={shown.length} hidden={a.id === spotlightId} onClick={() => onSpotlight(a.id)} />)}
-                  {rest > 0 && <p data-mehr className={`${T.meta} text-muted`}>+{rest} weitere</p>}
+                  {rest > 0 && (
+                    <button type="button" data-mehr onClick={() => setOpenGroup(gid)} className={`self-start ${T.meta} text-muted underline-offset-4 hover:text-fg hover:underline`}>
+                      {collapsed ? "zeigen" : `+${rest} weitere`}
+                    </button>
+                  )}
+                  {isOpen && (
+                    <button type="button" onClick={() => setOpenGroup(null)} className={`self-start ${T.meta} text-muted underline-offset-4 hover:text-fg hover:underline`}>weniger</button>
+                  )}
                 </div>
               </motion.div>
             );

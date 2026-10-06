@@ -23,7 +23,7 @@ Fragen und Optionen ändern: `src/lib/steps.ts`.
 
 ## Proben ohne Datenbank
 
-Lokal (nur `npm run dev`) zeigt `/present/ndu?vorschau=lobby|poll|poll2|text|finale` jeden Schritt mit erfundenen Daten – ohne Supabase und ohne Presenter-Key. In der Textwand: Karte anklicken = Spotlight, `T` = Themen. Im Finale: `H` = QR zur Kurs-Website.
+Lokal (nur `npm run dev`) zeigt `/present/ndu?vorschau=lobby|poll|poll2|text|themen|finale` jeden Schritt mit erfundenen Daten – ohne Supabase und ohne Presenter-Key. In der Textwand: Karte anklicken = Spotlight, `T` = Themen. Im Finale: `H` = QR zur Kurs-Website.
 
 ## Im Hörsaal
 
