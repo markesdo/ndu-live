@@ -8,9 +8,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Kein Zugriff" }, { status: 401 });
   }
   const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!);
-  await admin.from("reactions").delete().eq("session_code", code);
-  await admin.from("answers").delete().eq("session_code", code);
-  await admin.from("participants").delete().eq("session_code", code);
-  await admin.from("sessions").update({ active_step: 0 }).eq("code", code);
+  // Nacheinander, und beim ersten Fehler abbrechen: Die Leinwand meldet dann „Nicht gespeichert“
+  // statt so zu tun, als wäre zurückgesetzt worden.
+  const steps = [
+    () => admin.from("reactions").delete().eq("session_code", code),
+    () => admin.from("answers").delete().eq("session_code", code),
+    () => admin.from("participants").delete().eq("session_code", code),
+    () => admin.from("sessions").update({ active_step: 0 }).eq("code", code),
+  ];
+  for (const run of steps) {
+    const { error } = await run();
+    if (error) return NextResponse.json({ error: "Zurücksetzen fehlgeschlagen" }, { status: 500 });
+  }
   return NextResponse.json({ ok: true });
 }
