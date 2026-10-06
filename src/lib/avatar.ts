@@ -7,8 +7,8 @@ export const RING_COLORS = [
   "#7ee0a3", "#2dd4bf", "#f472b6", "#c4a1ff",
 ];
 
-// FNV-1a: klein, schnell, stabil über Browser hinweg.
-function hash(s: string) {
+// FNV-1a: klein, schnell, stabil über Browser hinweg. Auch für die Streuung der Reaktionen.
+export function hash(s: string) {
   let h = 0x811c9dc5;
   for (let i = 0; i < s.length; i++) {
     h ^= s.charCodeAt(i);

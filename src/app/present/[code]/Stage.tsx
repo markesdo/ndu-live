@@ -3,6 +3,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, LayoutGroup, MotionConfig, motion, useReducedMotion } from "motion/react";
 import { STEPS, courseUrl } from "@/lib/steps";
 import { stripNames, type Spotlight, type Thema } from "@/lib/ai-shared";
+import { doneSpot, ideaTextForAi, requestSpot, type SpotQueue } from "@/lib/spot-queue";
+import { hash } from "@/lib/avatar";
 import type { Answer, Participant, Reaction } from "@/lib/useSession";
 import Lobby from "./Lobby";
 import Poll, { Pool } from "./Poll";
@@ -51,32 +53,39 @@ export default function Stage(props: Props) {
 
   // KI: Ergebnis pro Idee merken, pro Route höchstens eine Anfrage gleichzeitig, nie blockierend.
   const [spots, setSpots] = useState<Record<string, SpotState>>({});
-  const spotBusy = useRef(false);
   const [themenNote, setThemenNote] = useState<string | null>(null);
   const themenBusy = useRef(false);
 
-  // Wartet eine Anfrage noch, merkt sich die Leinwand die zuletzt geöffnete Idee und holt sie danach.
-  // Ein „off“ (z. B. vor dem Freischalten) wird beim nächsten Öffnen erneut versucht.
-  const spotWanted = useRef<string | null>(null);
+  // Spotlight-Warteschlange (src/lib/spot-queue.ts): eine Anfrage läuft, dahinter ein Platz für die
+  // zuletzt geöffnete Idee. Verdrängte Ideen gehen zurück auf „unbekannt“ und laden beim nächsten
+  // Öffnen neu. Ideen und Namen kommen aus Refs – also aus dem Stand beim Senden, nicht beim Einreihen.
+  const queue = useRef<SpotQueue>({ busy: null, wanted: null });
   const spotsRef = useRef(spots);
-  useEffect(() => { spotsRef.current = spots; }, [spots]);
-  function fetchSpot(id: string) {
-    const known = spotsRef.current[id];
-    if (known && known.status !== "off") return;
-    if (spotBusy.current) { spotWanted.current = id; setSpots((s) => ({ ...s, [id]: { status: "loading" } })); return; }
-    const idea = answers.find((a) => a.id === id);
-    if (!idea) return;
-    spotBusy.current = true;
-    setSpots((s) => ({ ...s, [id]: { status: "loading" } }));
-    ai.spotlight(stripNames(idea.value, names))
+  const answersRef = useRef(answers);
+  const peopleRef = useRef(participants);
+  useEffect(() => { spotsRef.current = spots; answersRef.current = answers; peopleRef.current = participants; });
+  const forget = (id: string) => setSpots((s) => { const n = { ...s }; delete n[id]; spotsRef.current = n; return n; });
+  function startSpot(id: string) {
+    const text = ideaTextForAi(id, answersRef.current, peopleRef.current);
+    if (text === null) { forget(id); finishSpot(); return; }
+    ai.spotlight(text)
       .catch(() => null)
       .then((data) => setSpots((s) => ({ ...s, [id]: data ? { status: "ok", data } : { status: "off" } })))
-      .finally(() => {
-        spotBusy.current = false;
-        const next = spotWanted.current;
-        spotWanted.current = null;
-        if (next && next !== id) { spotsRef.current = { ...spotsRef.current, [next]: { status: "off" } }; fetchSpot(next); }
-      });
+      .finally(finishSpot);
+  }
+  function finishSpot() {
+    const { q, start } = doneSpot(queue.current);
+    queue.current = q;
+    if (start) startSpot(start);
+  }
+  function fetchSpot(id: string) {
+    const known = spotsRef.current[id];
+    if (known && known.status !== "off" && !(known.status === "loading" && queue.current.busy !== id && queue.current.wanted !== id)) return;
+    const { q, start, dropped } = requestSpot(queue.current, id);
+    queue.current = q;
+    if (dropped) forget(dropped);
+    setSpots((s) => ({ ...s, [id]: { status: "loading" } }));
+    if (start) startSpot(start);
   }
   function openSpot(id: string) {
     patch({ spot: id });
@@ -179,7 +188,7 @@ export default function Stage(props: Props) {
         <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden" aria-hidden>
             <AnimatePresence>
               {(reduce ? [] : reactions.slice(-25)).map((r) => {
-                const seed = spread(r.id);
+                const seed = hash(r.id); // gleichmäßige Streuung über die Breite
                 return (
                   <motion.span key={r.id} className="absolute bottom-0 text-[clamp(40px,3.6vw,72px)]" style={{ left: `${(seed % 90) + 5}vw` }}
                     initial={{ opacity: 1, y: 0, x: 0 }} animate={{ opacity: 0, y: "-105vh", x: (seed % 41) - 20 }} transition={{ duration: 3.5, ease: "easeOut" }}>
@@ -208,9 +217,3 @@ export default function Stage(props: Props) {
   );
 }
 
-// Gleichmäßige Streuung der Reaktionen über die Breite, unabhängig vom Aufbau der ID.
-function spread(id: string) {
-  let h = 2166136261;
-  for (let i = 0; i < id.length; i++) h = Math.imul(h ^ id.charCodeAt(i), 16777619);
-  return h >>> 0;
-}
