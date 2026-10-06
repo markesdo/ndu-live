@@ -54,3 +54,30 @@ h1, h2 { font-family: var(--nf-display), ui-sans-serif, system-ui, sans-serif; l
 @keyframes live-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .45; transform: scale(.8); } }
 .live-dot { animation: live-pulse 2s ease-in-out infinite; }
 @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
+
+/* Leinwand: Farbstimmung pro Schritt. Zwei Lichtflecken, deren Farbe 600 ms überblendet
+   (@property macht Farben animierbar); bewegt wird nur per transform. */
+@property --glow-a { syntax: "<color>"; inherits: true; initial-value: rgba(255, 106, 77, 0.18); }
+@property --glow-b { syntax: "<color>"; inherits: true; initial-value: rgba(107, 140, 255, 0.14); }
+.stage { transition: --glow-a 600ms ease, --glow-b 600ms ease; }
+.stage::before {
+  content: ""; position: fixed; inset: -20%; pointer-events: none; z-index: 0;
+  background:
+    radial-gradient(45% 40% at 15% 10%, var(--glow-a), transparent 70%),
+    radial-gradient(40% 40% at 90% 95%, var(--glow-b), transparent 70%);
+  animation: glow-drift 24s ease-in-out infinite alternate;
+}
+@keyframes glow-drift { from { transform: translate3d(0, 0, 0); } to { transform: translate3d(3%, -2%, 0); } }
+.stage[data-mood="lobby"]  { --glow-a: rgba(255, 106, 77, 0.22); --glow-b: rgba(255, 176, 59, 0.10); }
+.stage[data-mood="poll"]   { --glow-a: rgba(107, 140, 255, 0.24); --glow-b: rgba(94, 194, 255, 0.10); }
+.stage[data-mood="poll2"]  { --glow-a: rgba(255, 176, 59, 0.22); --glow-b: rgba(255, 106, 77, 0.10); }
+.stage[data-mood="text"]   { --glow-a: rgba(255, 106, 77, 0.18); --glow-b: rgba(107, 140, 255, 0.18); }
+.stage[data-mood="finale"] { --glow-a: rgba(74, 222, 128, 0.16); --glow-b: rgba(255, 106, 77, 0.18); }
+
+/* Blinkender Cursor im Spotlight-Terminal */
+@keyframes caret-blink { 50% { opacity: 0; } }
+.caret { animation: caret-blink 1s steps(1) infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .stage::before, .caret { animation: none; }
+}

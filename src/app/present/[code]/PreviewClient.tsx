@@ -1,0 +1,85 @@
+"use client";
+// Nur für die Entwicklung (page.tsx lässt die Vorschau nur bei NODE_ENV development/test zu):
+// zeigt jeden Schritt mit erfundenen Teilnehmenden, ohne die Datenbank anzufassen.
+import { useEffect, useMemo, useState } from "react";
+import { STEPS, EMOJIS } from "@/lib/steps";
+import type { Spotlight, Thema } from "@/lib/ai-shared";
+import type { Answer, Participant, Reaction } from "@/lib/useSession";
+import Stage, { type StageAi } from "./Stage";
+
+const NAMES = ["Lena", "Jonas", "Sara", "Max", "Aylin", "Paul", "Mia", "Lukas", "Hannah", "Felix", "Emma", "Tobias",
+  "Sophie", "David", "Laura", "Elias", "Nina", "Moritz", "Julia", "Simon", "Clara", "Ben"];
+const VIBES = ["🦊", "🐙", "🦉", "🦖", "🚀", "🔮", "🌵", "🍕", "🎧", "🛹", "🧃", "🪐", "⚡", "🧠", "🌶️", "🎲"];
+const PEOPLE: Participant[] = NAMES.map((name, i) => ({ id: `p${i}`, name, emoji: VIBES[(i * 5) % VIBES.length] }));
+
+const POLL1 = [11, 6, 3, 1];
+const POLL2 = [6, 7, 5, 2];
+const IDEAS = [
+  "Eine App, die zeigt, wo in der Bibliothek noch Plätze frei sind",
+  "Mitfahrbörse für den Weg zur Uni",
+  "Lerngruppen finden nach Kurs und Uhrzeit",
+  "Mensa-Menü mit Bewertungen und Wartezeit",
+  "WG-Putzplan, der sich selbst gerecht verteilt",
+  "Flohmarkt für Lehrbücher am Campus",
+  "Erinnerung an Abgaben mit Countdown",
+  "Events am Campus mit einem Klick zusagen",
+  "Gemeinsam kochen: wer hat was im Kühlschrank",
+];
+
+function answersFor(): Answer[] {
+  const out: Answer[] = [];
+  const addPoll = (step: number, counts: number[]) => {
+    let p = 0;
+    counts.forEach((c, oi) => { for (let k = 0; k < c; k++, p++) out.push({ id: `a${step}-${p}`, participant_id: PEOPLE[p].id, step, value: (STEPS[step] as { options: string[] }).options[oi] }); });
+  };
+  addPoll(1, POLL1);
+  addPoll(2, POLL2);
+  IDEAS.forEach((value, i) => out.push({ id: `idea${i}`, participant_id: PEOPLE[i * 2].id, step: 3, value }));
+  return out;
+}
+
+const KINDS: Record<string, number> = { lobby: 0, poll: 1, poll2: 2, text: 3, finale: 4 };
+
+export default function PreviewClient({ code, vorschau }: { code: string; vorschau: string }) {
+  const [step, setStep] = useState(KINDS[vorschau] ?? 0);
+  const all = useMemo(() => answersFor(), []);
+  // Ankünfte und Stimmen nach und nach, damit Begrüßung und Schwarm zu sehen sind.
+  const [tick, setTick] = useState(0);
+  useEffect(() => { const t = setInterval(() => setTick((n) => n + 1), 700); return () => clearInterval(t); }, []);
+  const people = step === 0 ? PEOPLE.slice(0, Math.min(PEOPLE.length, 10 + tick)) : PEOPLE;
+  const answers = all.filter((a) => {
+    if (a.step !== step || STEPS[step].kind !== "poll") return true;
+    return Number(a.id.split("-")[1]) < tick * 2;
+  });
+  const reactions: Reaction[] = STEPS[step].kind === "finale"
+    ? Array.from({ length: Math.min(tick, 25) }, (_, i) => ({ id: `${(tick - i).toString(16).padStart(6, "0")}${i}`, emoji: EMOJIS[(tick - i) % EMOJIS.length], created_at: "" }))
+    : [];
+
+  const ai: StageAi = useMemo(() => ({
+    spotlight: async (text): Promise<Spotlight> => {
+      await new Promise((r) => setTimeout(r, 900));
+      return {
+        pitch: `Eine Web-App für Studierende: ${text.replace(/^Eine App, die /, "")}.`,
+        kriterien: [
+          "Gegeben ich öffne die Seite, wenn ich lade, dann sehe ich die Liste",
+          "Gegeben ein Eintrag ist voll, wenn ich ihn ansehe, dann ist er grau",
+          "Gegeben ich bin nicht angemeldet, wenn ich speichere, dann kommt die Anmeldung",
+        ],
+      };
+    },
+    themen: async (ideen): Promise<Thema[]> => {
+      await new Promise((r) => setTimeout(r, 900));
+      const ids = ideen.map((i) => i.id);
+      return [
+        { titel: "Lernen", ids: ids.filter((_, i) => [0, 2, 6].includes(i)) },
+        { titel: "Campus-Leben", ids: ids.filter((_, i) => [3, 5, 7].includes(i)) },
+        { titel: "Wohnen & Alltag", ids: ids.filter((_, i) => [1, 4, 8].includes(i)) },
+      ];
+    },
+  }), []);
+
+  return (
+    <Stage code={code} step={step} participants={people} answers={answers} reactions={reactions} live reconnecting={false}
+      go={(n) => { if (n >= 0 && n < STEPS.length) { setStep(n); setTick(0); } }} onReset={() => setTick(0)} dialogOpen={false} ai={ai} />
+  );
+}
