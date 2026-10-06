@@ -1,14 +1,18 @@
 @import "tailwindcss";
 
+/* Farben wie die Kurs-Website (dunkles Thema), auf die Bühne abgestimmt. Kontraste im Commit. */
 :root {
-  --bg: #0b0b12;
+  --bg: #121216;
   --fg: #f4f4f8;
-  --muted: #9a9ab0;
-  --accent: #ff5a3c;
+  --muted: #a3a3b8;
+  --accent: #ff6a4d;
+  --accent-ink: #121216;
   --accent-2: #ffb03b;
-  --blue: #5b8cff;
-  --card: #15151f;
-  --border: #262636;
+  --blue: #6b8cff;
+  --ok: #4ade80;
+  --card: #1b1b22;
+  --card-2: #23232c;
+  --border: #2a2a34;
 }
 
 @theme inline {
@@ -16,20 +20,35 @@
   --color-fg: var(--fg);
   --color-muted: var(--muted);
   --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
   --color-accent-2: var(--accent-2);
   --color-blue: var(--blue);
+  --color-ok: var(--ok);
   --color-card: var(--card);
+  --color-card-2: var(--card-2);
   --color-border: var(--border);
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: var(--nf-display), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--nf-body), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--nf-code), ui-monospace, "SF Mono", Menlo, monospace;
 }
 
 html, body { height: 100%; }
 body {
   background: var(--bg);
   color: var(--fg);
-  font-family: var(--font-sans);
+  font-family: var(--nf-body), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   background-image:
-    radial-gradient(1200px 600px at 10% -10%, rgba(255, 90, 60, 0.18), transparent 60%),
-    radial-gradient(900px 500px at 100% 110%, rgba(91, 140, 255, 0.16), transparent 60%);
+    radial-gradient(1200px 600px at 10% -10%, rgba(255, 106, 77, 0.16), transparent 60%),
+    radial-gradient(900px 500px at 100% 110%, rgba(107, 140, 255, 0.14), transparent 60%);
   background-attachment: fixed;
+  -webkit-tap-highlight-color: transparent;
 }
+
+h1, h2 { font-family: var(--nf-display), ui-sans-serif, system-ui, sans-serif; letter-spacing: -0.02em; }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Kennzeichnung „live“: pulsierender Punkt */
+@keyframes live-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .45; transform: scale(.8); } }
+.live-dot { animation: live-pulse 2s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }

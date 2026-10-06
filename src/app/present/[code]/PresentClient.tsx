@@ -1,12 +1,12 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { AnimatePresence, MotionConfig, motion } from "motion/react";
 import { QRCodeSVG } from "qrcode.react";
 import { useSession } from "@/lib/useSession";
 import { STEPS } from "@/lib/steps";
 
 export default function PresentClient({ code }: { code: string }) {
-  const { step, participants, answers, reactions, error } = useSession(code);
+  const { step, participants, answers, reactions, error, live } = useSession(code);
   const [key, setKey] = useState("");
   const [origin, setOrigin] = useState("");
 
@@ -51,12 +51,20 @@ export default function PresentClient({ code }: { code: string }) {
   if (!current || step === null) return <div className="grid min-h-screen place-items-center text-muted">Verbinde …</div>;
 
   return (
+    <MotionConfig reducedMotion="user">
     <main className="relative flex min-h-screen flex-col overflow-hidden px-10 py-8">
       {/* Kopf */}
       <header className="flex items-center justify-between text-sm text-muted">
-        <span className="tracking-widest uppercase">NDU Coding 2026 · Live</span>
+        <span className="font-mono text-xs uppercase tracking-[0.14em]">NDU Coding 2026 · Live</span>
         <span className="flex items-center gap-3">
-          <span className="rounded-full border border-border px-3 py-1">{participants.length} dabei</span>
+          <span className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 font-mono text-fg">
+            <span className={`h-2 w-2 rounded-full ${live ? "live-dot bg-ok" : "bg-muted"}`} aria-hidden />
+            <AnimatePresence mode="popLayout" initial={false}>
+              <motion.span key={participants.length} initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -10, opacity: 0 }}
+                transition={{ type: "spring", stiffness: 500, damping: 30 }} className="inline-block tabular-nums">{participants.length}</motion.span>
+            </AnimatePresence>
+            dabei
+          </span>
           <span className="font-mono">{joinUrl.replace(/^https?:\/\//, "")}</span>
         </span>
       </header>
@@ -69,12 +77,12 @@ export default function PresentClient({ code }: { code: string }) {
               <div className="grid items-center gap-12 lg:grid-cols-[1fr_auto]">
                 <div>
                   <h1 className="mb-4 text-6xl font-bold leading-[1.05]">Scannen.<br />Vorname.<br />Dabei sein.</h1>
-                  <p className="mb-8 text-2xl text-muted">{joinUrl.replace(/^https?:\/\//, "")}</p>
+                  <p className="mb-8 font-mono text-2xl text-muted">{joinUrl.replace(/^https?:\/\//, "")}</p>
                   <div className="flex flex-wrap gap-2">
                     <AnimatePresence>
                       {participants.map((p) => (
-                        <motion.span key={p.id} initial={{ scale: 0, rotate: -20 }} animate={{ scale: 1, rotate: 0 }} transition={{ type: "spring", stiffness: 400, damping: 18 }}
-                          className="rounded-full border border-border bg-card px-4 py-2 text-xl">{p.emoji} {p.name}</motion.span>
+                        <motion.span key={p.id} initial={{ scale: 0, rotate: -20, y: 20 }} animate={{ scale: 1, rotate: 0, y: 0 }} transition={{ type: "spring", stiffness: 500, damping: 12 }}
+                          className="rounded-full border border-border bg-card px-5 py-3 text-2xl">{p.emoji} {p.name}</motion.span>
                       ))}
                     </AnimatePresence>
                   </div>
@@ -113,7 +121,7 @@ export default function PresentClient({ code }: { code: string }) {
                 <div className="flex flex-wrap gap-4">
                   <AnimatePresence>
                     {stepAnswers.map((a, i) => (
-                      <motion.div key={a.id} initial={{ opacity: 0, scale: 0.6, y: 40 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ type: "spring", stiffness: 260, damping: 20 }}
+                      <motion.div key={a.id} initial={{ opacity: 0, scale: 0.6, x: -80, y: 80 }} animate={{ opacity: 1, scale: 1, x: 0, y: 0 }} transition={{ type: "spring", stiffness: 260, damping: 20 }}
                         style={{ rotate: ((i * 7) % 5) - 2 }}
                         className="max-w-sm rounded-2xl border border-border bg-card px-5 py-4 shadow-lg">
                         <p className="text-xl leading-snug">„{a.value}“</p>
@@ -129,7 +137,7 @@ export default function PresentClient({ code }: { code: string }) {
             {current.kind === "finale" && (
               <div className="text-center">
                 <motion.h1 initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="mb-6 text-6xl font-bold leading-tight">{current.title}</motion.h1>
-                <p className="text-3xl text-muted">Next.js · Supabase Realtime · Vercel · Claude Code</p>
+                <p className="font-mono text-2xl uppercase tracking-[0.12em] text-muted">Next.js · Supabase Realtime · Vercel · Claude Code</p>
                 <p className="mt-10 text-2xl">Am Ende dieser drei Tage baut ihr so etwas selbst.</p>
               </div>
             )}
@@ -157,5 +165,6 @@ export default function PresentClient({ code }: { code: string }) {
         </span>
       </footer>
     </main>
+    </MotionConfig>
   );
 }
