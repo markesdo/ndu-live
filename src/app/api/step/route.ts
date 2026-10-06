@@ -7,7 +7,7 @@ export async function POST(req: NextRequest) {
   if (!process.env.PRESENTER_KEY || key !== process.env.PRESENTER_KEY) {
     return NextResponse.json({ error: "Kein Zugriff" }, { status: 401 });
   }
-  const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
+  const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!);
   const { error } = await admin.from("sessions").update({ active_step: step }).eq("code", code);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });
