@@ -33,7 +33,7 @@ export const STEPS: Step[] = [
 //   Zeilen:  find src -name '*.ts' -o -name '*.tsx' -o -name '*.css' | xargs cat | wc -l
 //   Commits: git rev-list --count HEAD
 // (Nicht beim Build berechnen: Vercel klont nur flach, die Commit-Zahl wäre falsch.)
-export const STACK = { minuten: 60, zeilen: 2384, commits: 13 };
+export const STACK = { minuten: 60, zeilen: 2073, commits: 12 };
 
 // Kurs-Website für den Abschluss. Ohne Variable: gleicher Rechner, Port 4321 (lokale Website).
 export function courseUrl(hostname: string) {
