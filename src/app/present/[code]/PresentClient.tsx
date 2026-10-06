@@ -6,7 +6,7 @@ import { useSession } from "@/lib/useSession";
 import { STEPS } from "@/lib/steps";
 
 export default function PresentClient({ code }: { code: string }) {
-  const { step, participants, answers, reactions, error, live } = useSession(code);
+  const { step, participants, answers, reactions, error, live, reconnecting } = useSession(code);
   const [key, setKey] = useState("");
   const [origin, setOrigin] = useState("");
 
@@ -58,7 +58,8 @@ export default function PresentClient({ code }: { code: string }) {
         <span className="font-mono text-xs uppercase tracking-[0.14em]">NDU Coding 2026 · Live</span>
         <span className="flex items-center gap-3">
           <span className="flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 font-mono text-fg">
-            <span className={`h-2 w-2 rounded-full ${live ? "live-dot bg-ok" : "bg-muted"}`} aria-hidden />
+            <span className={`h-2 w-2 rounded-full ${live && !reconnecting ? "live-dot bg-ok" : "bg-accent-2"}`} aria-hidden />
+            {reconnecting && <span className="text-accent-2">verbinde neu ·</span>}
             <AnimatePresence mode="popLayout" initial={false}>
               <motion.span key={participants.length} initial={{ y: 10, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -10, opacity: 0 }}
                 transition={{ type: "spring", stiffness: 500, damping: 30 }} className="inline-block tabular-nums">{participants.length}</motion.span>

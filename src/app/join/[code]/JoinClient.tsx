@@ -117,6 +117,15 @@ export default function JoinClient({ code }: { code: string }) {
     sending.current.delete(s);
     // 23505 = UNIQUE (participant_id, step) greift: Diese Antwort ist schon gespeichert (z. B. zweites Gerät
     // oder Doppeltipp). Das ist kein Fehler – die gespeicherte Antwort kommt per Realtime und hat Vorrang.
+    // 23503 = Fremdschlüssel, 22P02 = kaputte gespeicherte ID: Mein Eintrag existiert nicht mehr (Session zurückgesetzt, z. B. während das Handy
+    // schlief). Dann neu beitreten lassen statt endlos „Nicht angekommen“ zu zeigen.
+    if (error?.code === "23503" || error?.code === "22P02") {
+      setMe(null);
+      setLocal({});
+      try { localStorage.removeItem(`ndu-live-${code}`); } catch {}
+      setNotice("Die Runde wurde neu gestartet – bitte noch einmal beitreten.");
+      return false;
+    }
     if (error && error.code !== "23505") {
       setLocal((l) => { const n = { ...l }; delete n[s]; return n; });
       setNotice("Nicht angekommen – bitte noch einmal.");
