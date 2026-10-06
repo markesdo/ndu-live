@@ -24,19 +24,25 @@ export function Dialog({ label, title, onCancel, children }: { label: string; ti
   );
 }
 
-export function KeyDialog({ onSubmit, onCancel }: { onSubmit: (k: string) => Promise<boolean>; onCancel: () => void }) {
+export type KeyResult = "ok" | "wrong" | "offline";
+
+export function KeyDialog({ onSubmit, onCancel }: { onSubmit: (k: string) => Promise<KeyResult>; onCancel: () => void }) {
   const [value, setValue] = useState("");
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [wrong, setWrong] = useState(0);
+  const [message, setMessage] = useState("");
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!value || busy) return;
     setBusy(true);
-    const ok = await onSubmit(value).catch(() => false);
+    const result = await onSubmit(value).catch((): KeyResult => "offline");
     setBusy(false);
-    if (!ok) setWrong((n) => n + 1);
+    if (result === "ok") return;
+    setWrong((n) => n + 1);
+    // Ein Netzfehler ist kein falscher Key – sonst tippt man ihn neu, obwohl er stimmt.
+    setMessage(result === "wrong" ? "Falscher Key – nochmal versuchen." : "Server nicht erreichbar – gleich nochmal versuchen.");
   }
 
   return (
@@ -50,7 +56,7 @@ export function KeyDialog({ onSubmit, onCancel }: { onSubmit: (k: string) => Pro
             className="w-full bg-transparent px-4 py-3 font-mono text-lg ring-im-rahmen outline-none" />
           <button type="button" onClick={() => setShow((s) => !s)} className="px-4 text-sm text-muted hover:text-fg">{show ? "Verbergen" : "Zeigen"}</button>
         </motion.div>
-        <p className="mb-6 h-5 text-sm text-accent" aria-live="polite">{wrong ? "Falscher Key – nochmal versuchen." : ""}</p>
+        <p className="mb-6 min-h-5 text-sm text-accent" aria-live="polite">{message}</p>
         <div className="flex justify-end gap-3">
           <button type="button" onClick={onCancel} className="rounded-xl border border-border px-5 py-3 text-lg">Abbrechen</button>
           <button type="submit" disabled={!value || busy} aria-busy={busy}
