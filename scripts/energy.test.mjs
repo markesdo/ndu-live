@@ -16,8 +16,10 @@ test("Handy: Bündel ist auf 24 gedeckelt, 0 und Unsinn schicken nichts", () => 
   assert.equal(MAX_BATCH, 24);
 });
 
-test("Stufen wachsen mit dem Raum (1×, 2×, 3× base), mindestens 150", () => {
-  assert.deepEqual(stageTargets(1), [150, 450, 900]);
+test("Stufen wachsen mit dem Raum (1×, 2×, 3× base), mindestens 120", () => {
+  assert.deepEqual(stageTargets(1), [120, 360, 720]);
+  assert.deepEqual(stageTargets(3), [120, 360, 720]); // ~80 s bei 3 × 3 Tipps/s
+  assert.deepEqual(stageTargets(4), [160, 480, 960]); // ~80 s bei 4 × 3 Tipps/s
   assert.deepEqual(stageTargets(20), [800, 2400, 4800]);
   assert.equal(stageOf(0, stageTargets(20)), 0);
   assert.equal(stageOf(799, stageTargets(20)), 0);
@@ -167,4 +169,9 @@ test("Leinwand: Einmal-Tipper blockieren die Dauertipper nicht (Review #5, dritt
     accept(s, { pid: "p1", n: 24 }, ids, 20, t);
   }
   assert.ok(s.total >= ziel, `Stufe 1 erreicht: ${s.total} >= ${ziel}`);
+});
+
+test("Prompt-Zeile grammatisch auch für eine Person und kleine Gruppen", () => {
+  assert.equal(promptWords(1).join(" "), "Baue eine App, mit der eine Person im Hörsaal live abstimmt, Ideen teilt und am Ende jubelt.");
+  assert.ok(promptWords(4).join(" ").includes("mit der 4 Leute im Hörsaal"));
 });

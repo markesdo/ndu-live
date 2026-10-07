@@ -14,7 +14,9 @@ export const STAGES = ["Prompt schreiben", "Agent arbeitet …", "Deployen …"]
 
 // Der Prompt, den der Raum schreibt. Er beschreibt die App, in der alle gerade sitzen.
 export const promptWords = (n: number) =>
-  `Baue eine App, mit der ${n} Leute im Hörsaal live abstimmen, Ideen teilen und am Ende jubeln.`.split(" ");
+  (n === 1
+    ? "Baue eine App, mit der eine Person im Hörsaal live abstimmt, Ideen teilt und am Ende jubelt."
+    : `Baue eine App, mit der ${n} Leute im Hörsaal live abstimmen, Ideen teilen und am Ende jubeln.`).split(" ");
 
 // Handy: Wie viele Tipps gehen in die nächste Nachricht? 0 → keine Nachricht.
 export function batchSize(pending: number): number {
@@ -24,8 +26,9 @@ export function batchSize(pending: number): number {
 
 // Stufen wachsen mit dem Raum: Länge der Stufen 1×, 2×, 3× base. Ergebnis: Summen-Schwellen.
 export function stageTargets(participants: number): [number, number, number] {
-  // Mindestens 150 je Stufe: Mit 3 Leuten (~9 Tipps/s) dauert es so rund 100 s bis „Deployed“, mit 10 rund 80 s.
-  const base = Math.max(150, 40 * Math.max(0, participants));
+  // Mindestens 120 je Stufe: Kurs 2026 hat 3 Studierende + 1 Dozent. Mit 3 Leuten (~9 Tipps/s) rund 80 s bis
+  // „Deployed“, mit 4 (~12 Tipps/s, 160 je Stufe) ebenfalls rund 80 s; mit 10 Leuten rund 80 s.
+  const base = Math.max(120, 40 * Math.max(0, participants));
   return [base, base * 3, base * 6];
 }
 

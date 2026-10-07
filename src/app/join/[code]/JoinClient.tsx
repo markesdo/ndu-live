@@ -6,6 +6,7 @@ import { useSession, type Participant } from "@/lib/useSession";
 import { AVATARS, AVATAR_NAMES, EMOJIS, EMOJI_NAMES, STEPS, courseUrl } from "@/lib/steps";
 import { ringColor } from "@/lib/avatar";
 import TokenPad from "./TokenPad";
+import SwarmPad from "./SwarmPad";
 
 type Me = { id: string; name: string; emoji: string };
 
@@ -278,6 +279,7 @@ export default function JoinClient({ code }: { code: string }) {
                   <span className="font-mono text-xs uppercase tracking-[0.12em] text-muted">dabei</span>
                 </div>
                 <AvatarWall participants={participants} meId={me.id} />
+                <SwarmPad code={code} pid={me.id} emoji={me.emoji} name={me.name} stepRef={stepRef} padStep={step} />
               </div>
             )}
 
@@ -490,7 +492,7 @@ function SocialProof({ others, total }: { others: Participant[]; total: number }
             style={{ boxShadow: `inset 0 0 0 2px ${ringColor(p.name)}` }}>{p.emoji}</motion.span>
         ))}
       </span>
-      <span>{total === 1 ? "1 ist schon da" : `${total} sind schon da`}</span>
+      <span>{total === 1 ? "Eine Person ist schon da" : `${total} sind schon da`}</span>
     </div>
   );
 }
