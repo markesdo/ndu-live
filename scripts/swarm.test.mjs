@@ -185,5 +185,6 @@ test("Sperrzone hart: Avatar samt Namen wird aus Text und QR-Code geschoben, nie
   assert.deepEqual(escapeRect({ x: 120, y: 150 }, a, 40, 70), { x: 60, y: 150 }); // links raus
   // Kopfzeile ganz oben: Ausgang nach oben läge außerhalb der Bühne → nach unten
   const kopf = { x: 0, y: 0, w: 1920, h: 60 };
-  assert.deepEqual(escapeRect({ x: 900, y: 20 }, kopf, 40, 70, { w: 1920, h: 1080 }), { x: 900, y: 100 });
+  assert.deepEqual(escapeRect({ x: 900, y: 5 }, kopf, 40, 70), { x: 900, y: -70 }); // ohne Bühne: oben wäre am nächsten
+  assert.deepEqual(escapeRect({ x: 900, y: 5 }, kopf, 40, 70, { w: 1920, h: 1080 }), { x: 900, y: 100 });
 });
