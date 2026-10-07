@@ -114,6 +114,25 @@ export function labelGap(labelA: number, labelB: number, r: number, unit: number
   return Math.max(r * 2.6, (labelA + labelB) / 2 + 16 * unit);
 }
 
+// Abstoßung zweier Avatare (b weg von o, dx/dy = o − b), damit weder Kreise noch Namen überlappen.
+// Nebeneinander (etwa gleiche Höhe): in x so viel Platz, wie die Namen breit sind. Übereinander (etwa gleiche Spalte):
+// in y Platz für Kreis + Namenszeile darunter + nächsten Kreis – sonst steht der obere Name auf dem unteren Avatar.
+export function stackGap(r: number): number {
+  return r * 3.5;
+}
+export function separation(dx: number, dy: number, r: number, labelA: number, labelB: number, unit: number): Vec {
+  let sx = 0, sy = 0;
+  const d = Math.hypot(dx, dy);
+  if (d === 0) return { x: -1, y: 0 };
+  if (d < r * 2.6) { const k = (r * 2.6 - d) / (r * 2.6); sx -= dx / d * k; sy -= dy / d * k; }
+  const gx = labelGap(labelA, labelB, r, unit);
+  if (Math.abs(dy) < r * 2.4 && Math.abs(dx) < gx) { const k = (gx - Math.abs(dx)) / gx; sx -= Math.sign(dx || 1) * k; }
+  const halfLabels = Math.max(r * 1.2, (labelA + labelB) / 4 + 8 * unit);
+  const gy = stackGap(r);
+  if (Math.abs(dx) < halfLabels && Math.abs(dy) < gy) { const k = (gy - Math.abs(dy)) / gy; sy -= Math.sign(dy || 1) * k; }
+  return { x: sx, y: sy };
+}
+
 // Sperrzonen, die (um die Avatar-Ränder vergrößert) einander berühren, zu einer zusammenfassen. Sonst schiebt die eine
 // den Avatar in die nächste und die schiebt ihn zurück – er bliebe über dem Text hängen (Review #6: Überschrift und
 // Zähler liegen nur 24 px auseinander).
@@ -206,11 +225,35 @@ export function pushFrom(p: Vec, a: Rect, reach: number): Vec {
   return { x: dx / d * k, y: dy / d * k };
 }
 
+// Abstand eines Punkts zu einem Rechteck (0, wenn er drin liegt).
+export function distToRect(p: Vec, a: Rect): number {
+  const dx = Math.max(a.x - p.x, 0, p.x - (a.x + a.w));
+  const dy = Math.max(a.y - p.y, 0, p.y - (a.y + a.h));
+  return Math.hypot(dx, dy);
+}
+
+// Freiraum um einen Punkt: Abstand zur nächsten Sperrzone (ohne Zonen: unendlich).
+export function clearance(p: Vec, avoid: Rect[]): number {
+  let m = Infinity;
+  for (const a of avoid) m = Math.min(m, distToRect(p, a));
+  return m;
+}
+
 // Neuer Ring-Platz: zufällig, aber nicht über Text/QR und nicht am Rand. rand: () => [0,1).
+// r ist der Abstand, den die Mitte zu jeder Sperrzone halten soll. Findet der Zufall nichts, nimmt ein Raster den
+// Punkt mit dem größten Freiraum – nie einen festen Notfall-Ort, der auf Text liegen kann (Review #6: Hinweiszeile).
 export function ringSpot(w: number, h: number, r: number, avoid: Rect[], rand: () => number): Vec {
+  const minX = Math.min(w / 2, r + 20), maxX = Math.max(w / 2, w - r - 20);
+  const minY = Math.min(h / 2, r + 20), maxY = Math.max(h / 2, h - r - 20);
   for (let i = 0; i < 40; i++) {
-    const p = { x: r + 20 + rand() * Math.max(1, w - 2 * r - 40), y: r + 20 + rand() * Math.max(1, h - 2 * r - 40) };
+    const p = { x: minX + rand() * (maxX - minX), y: minY + rand() * (maxY - minY) };
     if (!ringBlocked(p, r, avoid)) return p;
   }
-  return { x: w * 0.4, y: h * 0.7 };
+  let best = { x: w / 2, y: h / 2 }, bestC = -1;
+  const step = Math.max(12, Math.min(w, h) / 40);
+  for (let x = minX; x <= maxX; x += step) for (let y = minY; y <= maxY; y += step) {
+    const c = clearance({ x, y }, avoid);
+    if (c > bestC) { bestC = c; best = { x, y }; }
+  }
+  return best;
 }

@@ -9,33 +9,40 @@ import { ARRIVE, Glyph, T } from "./parts";
 // (Swarm.tsx, Canvas dahinter) – Text und QR-Code sind mit data-swarm-meiden markiert, der Schwarm weicht ihnen aus.
 export default function Lobby({ participants, joinUrl, showQr }: { participants: Participant[]; joinUrl: string; showQr: boolean }) {
   const newest = useArrivals(participants);
-  const many = participants.length > 8;
   const url = joinUrl.replace(/^https?:\/\//, "");
+  // Sobald jemand da ist, rückt alles in ein schmales Band oben (Text links, kleinerer QR-Code rechts) – darunter
+  // bleibt eine große freie Fläche für den Schwarm und den Ring. Vorher steht die große Begrüßung.
+  const compact = participants.length > 0;
+  const counter = (
+    <span className="relative inline-block overflow-hidden align-bottom">
+      <AnimatePresence mode="popLayout" initial={false}>
+        <motion.span key={participants.length} initial={{ y: "60%", opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: "-60%", opacity: 0 }}
+          transition={ARRIVE}
+          className={`inline-block font-display ${compact ? "text-[clamp(56px,min(6.5vw,12vh),132px)]" : "text-[clamp(96px,11vw,200px)]"} font-extrabold leading-[0.9] tabular-nums`}>
+          {participants.length}
+        </motion.span>
+      </AnimatePresence>
+    </span>
+  );
   return (
-    <div className="relative z-10 grid items-center gap-[4vw] lg:grid-cols-[1fr_auto]">
+    <div className={`relative z-10 grid gap-[4vw] lg:grid-cols-[1fr_auto] ${compact ? "items-start" : "items-center"}`}>
       <div className="min-w-0">
-        <motion.h2 layout data-swarm-meiden className={`w-fit ${many ? "text-[clamp(32px,3vw,56px)]" : T.h2} mb-6 font-extrabold leading-[1.05] tracking-[-0.03em] text-muted`}>
-          {many ? "Scannen. Vorname. Dabei sein." : <>Scannen.<br />Vorname.<br />Dabei sein.</>}
+        <motion.h2 layout data-swarm-meiden className={`w-fit ${compact ? "text-[clamp(26px,min(2.6vw,4.6vh),52px)]" : T.h2} font-extrabold leading-[1.05] tracking-[-0.03em] text-muted ${compact ? "mb-[1.5vh]" : "mb-6"}`}>
+          {compact ? "Scannen. Vorname. Dabei sein." : <>Scannen.<br />Vorname.<br />Dabei sein.</>}
         </motion.h2>
-        <div data-swarm-meiden className="mb-6 flex w-fit items-baseline gap-5">
-          <span className="relative inline-block overflow-hidden align-bottom">
-            <AnimatePresence mode="popLayout" initial={false}>
-              <motion.span key={participants.length} initial={{ y: "60%", opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: "-60%", opacity: 0 }}
-                transition={ARRIVE} className="inline-block font-display text-[clamp(96px,11vw,200px)] font-extrabold leading-[0.9] tabular-nums">
-                {participants.length}
-              </motion.span>
-            </AnimatePresence>
-          </span>
-          <span className={`${T.option} font-semibold text-muted`}>dabei</span>
+        <div data-swarm-meiden className={`flex w-fit items-baseline gap-5 ${compact ? "mb-[1vh]" : "mb-6"}`}>
+          {counter}
+          <span className={`${compact ? "text-[clamp(20px,min(2vw,3.6vh),40px)]" : T.option} font-semibold text-muted`}>dabei</span>
         </div>
-
-        <p data-swarm-meiden className={`w-fit ${T.option} text-muted`}>Steuer deinen Avatar. Findet zusammen in den Ring.</p>
+        <p data-swarm-meiden className={`w-fit ${compact ? "text-[clamp(18px,min(1.8vw,3.2vh),34px)]" : T.option} text-muted`}>Steuer deinen Avatar. Findet zusammen in den Ring.</p>
       </div>
 
       {showQr && (
-        <div data-swarm-meiden data-swarm-qr className="flex flex-col items-center gap-4">
-          <div className="rounded-[48px] bg-white p-[clamp(16px,1.6vw,28px)] shadow-2xl ring-8 ring-accent/20">
-            <QRCodeSVG value={joinUrl} size={360} level="M" className="h-[clamp(240px,24vw,420px)] w-[clamp(240px,24vw,420px)]" />
+        <div data-swarm-meiden data-swarm-qr className={`flex flex-col items-center ${compact ? "gap-2" : "gap-4"}`}>
+          <div className={`bg-white shadow-2xl ring-8 ring-accent/20 ${compact ? "rounded-[28px] p-[clamp(10px,1.2vh,18px)]" : "rounded-[48px] p-[clamp(16px,1.6vw,28px)]"}`}>
+            {/* Kompakt bleibt der Code ≥ 24vh groß – aus der letzten Reihe noch scannbar. */}
+            <QRCodeSVG value={joinUrl} size={360} level="M"
+              className={compact ? "h-[clamp(170px,26vh,300px)] w-[clamp(170px,26vh,300px)]" : "h-[clamp(240px,24vw,420px)] w-[clamp(240px,24vw,420px)]"} />
           </div>
           <span className={`${T.meta} text-muted`}>{url}</span>
         </div>

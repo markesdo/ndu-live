@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  ACTIVE_MS, HEARTBEAT_MS, HOLD_MS, MIN_GAP_MS, SEND_MS, STALE_MS, acceptStick, currentTarget, boidAlpha, isActive, lerpStick, quantise, ringNeeded, ringSpot, ringStep, shouldSend, spawnPoint, avatarRadius, escapeRect, labelGap, mergeRects,
+  ACTIVE_MS, HEARTBEAT_MS, HOLD_MS, MIN_GAP_MS, SEND_MS, STALE_MS, acceptStick, clearance, separation, stackGap, currentTarget, boidAlpha, isActive, lerpStick, quantise, ringNeeded, ringSpot, ringStep, shouldSend, spawnPoint, avatarRadius, escapeRect, labelGap, mergeRects,
 } from "../src/lib/swarm.ts";
 
 const ids = new Set(["a", "b"]);
@@ -198,4 +198,30 @@ test("Sperrzonen dicht übereinander: Avatar landet nicht über der Überschrift
   assert.equal(drin(ueberschrift) || drin(zaehler), false, `Avatar bei ${p.x},${p.y}`);
   assert.equal(mergeRects([ueberschrift, zaehler], R, R * 1.7, R).length, 1);
   assert.equal(mergeRects([{ x: 0, y: 0, w: 10, h: 10 }, { x: 900, y: 900, w: 10, h: 10 }], R, R, R).length, 2);
+});
+
+test("Leinwand: Ring-Platz bei wenig Freiraum liegt nie auf Text, sondern dort, wo am meisten Platz ist (Review #6)", () => {
+  // 1280×720, große Begrüßung: Text-Spalte links, QR rechts, Kopf- und Fußzeile – zusammengefasst kaum Freiraum.
+  const blocked = [
+    { x: 40, y: 20, w: 1200, h: 50 },   // Kopfzeile
+    { x: 40, y: 150, w: 760, h: 420 },  // Überschrift + Zähler + Hinweis (zusammengefasst)
+    { x: 860, y: 150, w: 420, h: 420 }, // QR bis zum Rand
+    { x: 40, y: 660, w: 1200, h: 40 },  // Fußzeile
+  ];
+  const r = 48 * 0.67 * 1.6;
+  const never = () => 0.5; // Zufall trifft immer dieselbe gesperrte Stelle → Raster muss greifen
+  const p = ringSpot(1280, 720, r, blocked, never);
+  for (const a of blocked) assert.ok(!(p.x > a.x && p.x < a.x + a.w && p.y > a.y && p.y < a.y + a.h), `nicht in Zone ${JSON.stringify(a)}`);
+  assert.ok(clearance(p, blocked) >= 40, `Freiraum ${clearance(p, blocked)}`);
+});
+
+test("Leinwand: Avatare übereinander halten Platz für den Namen dazwischen (Review #6)", () => {
+  const r = 48;
+  // o steht direkt unter b, Abstand 2,7 Radien: Kreise überlappen nicht, aber bs Name läge auf os Avatar
+  const s = separation(0, r * 2.7, r, 60, 60, 1);
+  assert.ok(s.y < 0, "b wird nach oben weggeschoben");
+  // weit genug übereinander: kein Schub mehr
+  assert.deepEqual(separation(0, stackGap(r) + 1, r, 60, 60, 1), { x: 0, y: 0 });
+  // nebeneinander mit langen Namen: Schub in x
+  assert.ok(separation(r * 2.7, 0, r, 160, 160, 1).x < 0);
 });

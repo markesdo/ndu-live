@@ -163,7 +163,7 @@ export default function Stage(props: Props) {
         </header>
 
         <LayoutGroup>
-          <section className="relative z-10 flex flex-1 items-center py-[3vh]">
+          <section className={`relative z-10 flex flex-1 py-[3vh] ${current.kind === "lobby" && participants.length > 0 ? "items-start" : "items-center"}`}>
             <AnimatePresence mode="wait">
               <motion.div key={step} initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -30 }}
                 transition={{ duration: 0.35, ease: [0.2, 0, 0, 1] }} className="w-full">

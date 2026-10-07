@@ -11,7 +11,7 @@ import { supabase } from "@/lib/supabase";
 import type { Participant } from "@/lib/useSession";
 import { hash, ringColor } from "@/lib/avatar";
 import {
-  AUTONOMOUS_MS, HOLD_MS, acceptStick, avatarRadius, boidAlpha, currentTarget, escapeRect, isActive, labelGap, lerpStick, mergeRects, pushFrom, ringBlocked, ringNeeded, ringSpot, ringStep, spawnPoint,
+  AUTONOMOUS_MS, HOLD_MS, acceptStick, avatarRadius, boidAlpha, clearance, currentTarget, escapeRect, isActive, lerpStick, mergeRects, pushFrom, ringBlocked, ringNeeded, ringSpot, ringStep, separation, spawnPoint,
   type Rect, type RingState, type StickMsg, type SwarmInput, type Vec,
 } from "@/lib/swarm";
 
@@ -69,6 +69,7 @@ export default function Swarm({ code, participants, preview, avoidSelector }: {
     let last = performance.now();
     let acc = 0;
     let seed = 1;
+    let lastPos = -Infinity;
     const rand = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
 
     const take = (msg: StickMsg, now: number) => {
@@ -156,7 +157,16 @@ export default function Swarm({ code, participants, preview, avoidSelector }: {
       }
     };
 
-    const ringRadius = () => radius() * 3.4; // zwei, drei Avatare passen bequem hinein
+    // Ring-Radius: zwei, drei Avatare passen bequem hinein – bei wenig Freiraum um die Mitte kleiner, damit die
+    // gezählte Fläche dort liegt, wo Avatare auch hinkommen.
+    let ringR = 0;
+    const ringRadius = () => ringR || radius() * 3.4;
+    const placeRing = (blockedNow: Rect[], R: number) => {
+      ringPos = ringSpot(w, h, R * 1.6, blockedNow, rand);
+      const c = clearance(ringPos, blockedNow);
+      ringR = Math.min(R * 3.4, Math.max(R * 2.4, c + R * 1.5));
+      cv.dataset.ring = `${Math.round(ringPos.x)},${Math.round(ringPos.y)},${Math.round(ringR)}`; // für Tests und zum Nachsehen
+    };
     const step = (dtMs: number, now: number) => {
       const dt = dtMs / 1000;
       const slow = reduceRef.current ? 0.5 : 1;
@@ -172,7 +182,7 @@ export default function Swarm({ code, participants, preview, avoidSelector }: {
       // (Abstand ringMargin zu jeder Sperrzone) – der Kreis selbst darf hinter Text liegen. Den ganzen Kreis frei zu
       // verlangen, ließ bei wenig Platz nur den Notfall-Ort übrig, mitten auf der Hinweiszeile (Review #6).
       const ringMargin = R * 1.6;
-      if (blocked.length && (!ringPos || ringBlocked(ringPos, ringMargin, blocked))) ringPos = ringSpot(w, h, ringMargin, blocked, rand);
+      if (blocked.length && (!ringPos || ringBlocked(ringPos, ringMargin, blocked))) placeRing(blocked, R);
 
       for (const b of list) {
         const pilot = input.get(b.id);
@@ -184,12 +194,9 @@ export default function Swarm({ code, participants, preview, avoidSelector }: {
           const d = Math.hypot(dx, dy);
           if (d > perception || d === 0) continue;
           n++; cx += o.x; cy += o.y; avx += o.vx; avy += o.vy;
-          if (d < R * 2.6) { const k = (R * 2.6 - d) / (R * 2.6); sx -= dx / d * k; sy -= dy / d * k; }
-          // Namen nebeneinander: etwa auf einer Höhe brauchen sie in x so viel Platz wie die Namen breit sind.
-          if (Math.abs(dy) < R * 2.4) {
-            const gap = labelGap(b.labelW, o.labelW, R, unit);
-            if (Math.abs(dx) < gap) { const k = (gap - Math.abs(dx)) / gap; sx -= Math.sign(dx || 1) * k; }
-          }
+          // Kreise und Namen dürfen sich nicht überlappen – nebeneinander wie übereinander (separation in swarm.ts).
+          const sep = separation(dx, dy, R, b.labelW, o.labelW, unit);
+          sx += sep.x; sy += sep.y;
         }
         if (n) {
           ax += ((cx / n - b.x) * 0.8 + (avx / n - b.vx) * 0.5) * 0.6; // Zusammenhalt + Ausrichtung
@@ -245,7 +252,7 @@ export default function Swarm({ code, participants, preview, avoidSelector }: {
         if (out.burst) {
           cv.dataset.runde = String(ring.round); // Zahl der geplatzten Ringe – für Tests und zum Nachsehen
           burst(ringPos.x, ringPos.y, inside.map((b) => b.color), 60);
-          ringPos = ringSpot(w, h, R * 1.6, blocked, rand);
+          placeRing(blocked, R);
         }
       }
 
@@ -317,6 +324,8 @@ export default function Swarm({ code, participants, preview, avoidSelector }: {
       sync(now);
       while (acc >= 16) { step(16, now); acc -= 16; }
       draw(now);
+      // Positionen zweimal pro Sekunde am Canvas ablesbar – für Tests und zum Nachsehen (Namen aus der Teilnehmer-Tabelle).
+      if (now - lastPos > 500) { lastPos = now; cv.dataset.avatare = [...boids.values()].map((b) => `${b.name}:${Math.round(b.x)}:${Math.round(b.y)}`).join(";"); }
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
