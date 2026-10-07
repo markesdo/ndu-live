@@ -80,7 +80,7 @@ export function useSession(code: string) {
           setAnswers((prev) => (prev.some((x) => x.id === a.id) ? prev : [...prev, a]));
         })
       .on("broadcast", { event: "stage" }, ({ payload }) => {
-        setEnergyStage((prev) => nextPhoneStage(prev, payload));
+        setEnergyStage((prev) => nextPhoneStage(prev, payload, Date.now()));
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "reactions", filter: `session_code=eq.${code}` },
         (payload) => {

@@ -49,7 +49,8 @@ export function useEnergy(code: string, participants: Participant[], preview: bo
     // Stand regelmäßig an die Handys (über den Session-Kanal, den die Leinwand ohnehin offen hat): so holen
     // Nachzügler, neu geladene Handys und verlorene Nachrichten auf. Jede Leinwand-Sitzung hat einen eigenen
     // Durchlauf (run) – nach einem Neuladen fangen die Handys mit ihr von vorn an statt auf „Deployed“ zu hängen.
-    const run = crypto.randomUUID();
+    // randomUUID gibt es nur über HTTPS oder localhost – auf einer LAN-Adresse im Dev-Betrieb nicht.
+    const run = typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
     const session = supabase.channel(`session-${code}`);
     let lastSent = -1;
     const announce = () => { lastSent = reached.current; session.send({ type: "broadcast", event: "stage", payload: { run, stage: reached.current } }).catch(() => {}); };

@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  MAX_BATCH, MIN_GAP_MS, accept, batchSize, emptyEnergy, nextPhoneStage, promptWords, stageOf, stageProgress, stageTargets, wordsFor,
+  MAX_BATCH, MIN_GAP_MS, accept, batchSize, emptyEnergy, nextPhoneStage, RUN_SWITCH_MS, promptWords, stageOf, stageProgress, stageTargets, wordsFor,
 } from "../src/lib/energy.ts";
 
 test("Handy: Bündel ist auf 24 gedeckelt, 0 und Unsinn schicken nichts", () => {
@@ -101,18 +101,21 @@ test("Leinwand: Stufe geht nicht zurück, wenn jemand dazukommt (minStage)", () 
   assert.equal(stageProgress(stageTargets(20)[0], stageTargets(21), 1), 0); // unter der Schwelle der erreichten Stufe
 });
 
-test("Handy: gleicher Durchlauf nur nach oben, neuer Durchlauf fängt neu an", () => {
-  let p = nextPhoneStage(null, { run: "r1", stage: 1 });
-  assert.deepEqual(p, { run: "r1", stage: 1 });
-  p = nextPhoneStage(p, { run: "r1", stage: 0 });
-  assert.deepEqual(p, { run: "r1", stage: 1 }); // verspätete alte Nachricht
-  p = nextPhoneStage(p, { run: "r1", stage: 3 });
-  assert.deepEqual(p, { run: "r1", stage: 3 });
-  p = nextPhoneStage(p, { run: "r2", stage: 0 }); // Leinwand neu geladen
-  assert.deepEqual(p, { run: "r2", stage: 0 });
-  assert.deepEqual(nextPhoneStage(p, { run: "r2", stage: 7 }), p);
-  assert.deepEqual(nextPhoneStage(p, { stage: 2 }), p);
-  assert.deepEqual(nextPhoneStage(p, null), p);
+test("Handy: gleicher Durchlauf nur nach oben, neuer Durchlauf erst, wenn der alte schweigt", () => {
+  let p = nextPhoneStage(null, { run: "r1", stage: 1 }, 0);
+  assert.deepEqual(p, { run: "r1", stage: 1, heard: 0 });
+  p = nextPhoneStage(p, { run: "r1", stage: 0 }, 1000);
+  assert.equal(p.stage, 1); // verspätete alte Nachricht
+  p = nextPhoneStage(p, { run: "r1", stage: 3 }, 3000);
+  assert.equal(p.stage, 3);
+  // zweite Leinwand offen, alte sendet noch: nicht wechseln
+  assert.deepEqual(nextPhoneStage(p, { run: "r2", stage: 0 }, 3000 + RUN_SWITCH_MS - 1), p);
+  // alte Leinwand schweigt (neu geladen): neu anfangen
+  const q = nextPhoneStage(p, { run: "r2", stage: 0 }, 3000 + RUN_SWITCH_MS);
+  assert.deepEqual(q, { run: "r2", stage: 0, heard: 3000 + RUN_SWITCH_MS });
+  assert.deepEqual(nextPhoneStage(q, { run: "r2", stage: 7 }, 99999), q);
+  assert.deepEqual(nextPhoneStage(q, { stage: 2 }, 99999), q);
+  assert.deepEqual(nextPhoneStage(q, null, 99999), q);
 });
 
 test("Leinwand: zwei Bündel einer Person dicht hintereinander (Netz schwankt) zählen beide", () => {

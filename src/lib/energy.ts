@@ -91,10 +91,14 @@ export function accept(state: EnergyState, msg: Msg, knownIds: ReadonlySet<strin
 
 // Handy: Stand der Leinwand übernehmen. Gleicher Durchlauf (run) → Stufe nur nach oben; neuer Durchlauf
 // (Leinwand neu geladen, zurück in die Lobby) → neu anfangen, damit kein Handy auf „Deployed“ hängen bleibt.
-export type PhoneStage = { run: string; stage: number };
-export function nextPhoneStage(prev: PhoneStage | null, msg: unknown): PhoneStage | null {
+// Ein fremder Durchlauf wird erst übernommen, wenn der bisherige eine Weile schweigt – sonst springen die Handys
+// hin und her, falls versehentlich zwei Leinwände offen sind (z. B. Laptop und zweiter Tab).
+export const RUN_SWITCH_MS = STAGE_EVERY_MS * 2 + 1000;
+export type PhoneStage = { run: string; stage: number; heard: number };
+export function nextPhoneStage(prev: PhoneStage | null, msg: unknown, now: number): PhoneStage | null {
   const m = msg as { run?: unknown; stage?: unknown } | null;
   if (!m || typeof m.run !== "string" || typeof m.stage !== "number" || !Number.isInteger(m.stage) || m.stage < 0 || m.stage > 3) return prev;
-  if (!prev || prev.run !== m.run) return { run: m.run, stage: m.stage };
-  return m.stage > prev.stage ? { run: prev.run, stage: m.stage } : prev;
+  if (!prev) return { run: m.run, stage: m.stage, heard: now };
+  if (prev.run !== m.run) return now - prev.heard >= RUN_SWITCH_MS ? { run: m.run, stage: m.stage, heard: now } : prev;
+  return { run: prev.run, stage: Math.max(prev.stage, m.stage), heard: now };
 }
