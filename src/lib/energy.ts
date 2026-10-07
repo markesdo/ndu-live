@@ -24,7 +24,8 @@ export function batchSize(pending: number): number {
 
 // Stufen wachsen mit dem Raum: Länge der Stufen 1×, 2×, 3× base. Ergebnis: Summen-Schwellen.
 export function stageTargets(participants: number): [number, number, number] {
-  const base = Math.max(300, 40 * Math.max(0, participants));
+  // Mindestens 150 je Stufe: Mit 3 Leuten (~9 Tipps/s) dauert es so rund 100 s bis „Deployed“, mit 10 rund 80 s.
+  const base = Math.max(150, 40 * Math.max(0, participants));
   return [base, base * 3, base * 6];
 }
 

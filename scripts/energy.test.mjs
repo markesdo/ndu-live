@@ -16,8 +16,8 @@ test("Handy: Bündel ist auf 24 gedeckelt, 0 und Unsinn schicken nichts", () => 
   assert.equal(MAX_BATCH, 24);
 });
 
-test("Stufen wachsen mit dem Raum (1×, 2×, 3× base), mindestens 300", () => {
-  assert.deepEqual(stageTargets(1), [300, 900, 1800]);
+test("Stufen wachsen mit dem Raum (1×, 2×, 3× base), mindestens 150", () => {
+  assert.deepEqual(stageTargets(1), [150, 450, 900]);
   assert.deepEqual(stageTargets(20), [800, 2400, 4800]);
   assert.equal(stageOf(0, stageTargets(20)), 0);
   assert.equal(stageOf(799, stageTargets(20)), 0);
@@ -62,10 +62,10 @@ test("Leinwand: zweite Nachricht derselben Person zu früh wird verworfen", () =
 });
 
 test("Leinwand: eine Person schafft keine Stufe allein (höchstens 60 %, solange sie allein tippt)", () => {
-  const s = emptyEnergy(); // 5 Leute → Stufe 1 = 300 Tokens; allein tippend gilt der Deckel für zwei Aktive: 180
+  const s = emptyEnergy(); // 5 Leute → Stufe 1 = 200 Tokens; allein tippend gilt der Deckel für zwei Aktive: 120
   let t = 0;
   for (let i = 0; i < 50; i++, t += MIN_GAP_MS) accept(s, { pid: "a", n: 24 }, ids, 5, t);
-  assert.equal(s.total, 180);
+  assert.equal(s.total, 120);
   assert.equal(stageOf(s.total, stageTargets(5)), 0);
 });
 
@@ -74,7 +74,7 @@ test("Leinwand: bei Probe allein gibt es keinen Anteil-Deckel", () => {
   let t = 0;
   for (let i = 0; i < 20; i++, t += MIN_GAP_MS) accept(s, { pid: "a", n: 24 }, new Set(["a"]), 1, t);
   assert.equal(s.total, 480); // 20 × 24, kein Deckel
-  assert.equal(stageOf(s.total, stageTargets(1)), 1);
+  assert.equal(stageOf(s.total, stageTargets(1)), 2);
 });
 
 test("Leinwand: der Anteil gilt pro Stufe neu, nach „Deployed“ zählt nichts mehr", () => {
