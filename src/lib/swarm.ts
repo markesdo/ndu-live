@@ -13,7 +13,6 @@ export const HOLD_MS = 1500; // so lange müssen genug im Ring sein, bis er plat
 export const STICK_TAU_MS = 250; // Glättung der Steuerrichtung (2-Hz-Sprünge verschwinden)
 export const HEARTBEAT_MS = 2000; // Handy: hält der Daumen still, trotzdem alle 2 s den Stand schicken
 export const SEQ_WINDOW_MS = 2_000; // Leinwand: nur innerhalb dieses Abstands gilt „ältere seq = verspätet“
-export const SEQ_AHEAD_MS = 5_000; // seq weiter als das in der Zukunft (Leinwand-Uhr) wird ignoriert, nie gespeichert
 export const STALE_MS = 3500; // Leinwand: so lange ohne Nachricht → Richtung gilt als losgelassen (Bildschirm gesperrt, Nachricht verloren)
 
 export type Vec = { x: number; y: number };
@@ -50,21 +49,22 @@ export type SwarmInput = Map<string, Pilot>;
 // Lobby in Kauf genommen. Schaden kann es nicht: Nur bekannte IDs zählen (Zustand höchstens so groß wie die Lobby),
 // Richtung auf Länge 1 gedeckelt, höchstens eine Richtung pro 200 ms und Person, und aus der Nachricht wird nur x/y gelesen –
 // Namen und Emojis auf der Leinwand kommen aus der Teilnehmer-Tabelle, nie aus einer Nachricht.
-export function acceptStick(input: SwarmInput, msg: StickMsg, knownIds: ReadonlySet<string>, now: number, wall: number = Date.now()): boolean {
+export function acceptStick(input: SwarmInput, msg: StickMsg, knownIds: ReadonlySet<string>, now: number): boolean {
   if (!msg || typeof msg !== "object") return false;
   if (typeof msg.pid !== "string" || !knownIds.has(msg.pid)) return false;
   if (typeof msg.x !== "number" || typeof msg.y !== "number" || !Number.isFinite(msg.x) || !Number.isFinite(msg.y)) return false;
-  // seq zählt nur, wenn sie plausibel ist: endlich und nicht weiter als SEQ_AHEAD_MS vor der Leinwand-Uhr (wall).
-  const seq = typeof msg.seq === "number" && Number.isFinite(msg.seq) && msg.seq <= wall + SEQ_AHEAD_MS ? msg.seq : null;
+  const seq = typeof msg.seq === "number" && Number.isFinite(msg.seq) ? msg.seq : null;
   const p = input.get(msg.pid);
   const release = Math.hypot(msg.x, msg.y) <= MIN_DELTA;
   if (p) {
     // Loslassen nie wegen des Abstands verwerfen: Kommt es dicht nach der letzten Richtung an (Netz-Schwankung),
     // flöge der Avatar sonst weiter, bis die Person wieder lenkt.
     if (!release && now - p.last < MIN_GAP_MS) return false;
-    // seq des Handys ist eine Uhrzeit in ms. Eine verspätete ältere Nachricht (z. B. eine Richtung, die nach dem
-    // Loslassen ankommt) wird nur innerhalb von SEQ_WINDOW_MS verworfen. Gefälschte seq in der Zukunft werden gar nicht
-    // gespeichert (siehe wall unten) – so kann eine Fälschung ein echtes Handy höchstens 2 s blockieren, nicht minutenlang.
+    // seq des Handys ist eine Uhrzeit in ms (Handy-Uhr – nie mit der Leinwand-Uhr vergleichen). Eine verspätete ältere
+    // Nachricht (z. B. eine Richtung, die nach dem Loslassen ankommt) wird nur innerhalb von SEQ_WINDOW_MS verworfen.
+    // Eine einzelne gefälschte seq blockiert ein echtes Handy daher höchstens ~2 s, egal wie weit sie in der Zukunft liegt.
+    // Wer ununterbrochen fälscht, kann ein Handy dauerhaft übersteuern – das ist die oben genannte Grenze (fremden Avatar
+    // lenken), keine neue Lücke.
     if (seq !== null && seq <= p.seq && p.seq - seq < SEQ_WINDOW_MS) return false;
   }
   const t = quantise({ x: msg.x, y: msg.y });
