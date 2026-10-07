@@ -47,6 +47,9 @@ export function useSession(code: string) {
         setRefreshFailed(false);
         setError(null);
         setStep(data.step);
+        // Nach Standby/Wiederverbinden ist unklar, ob die Leinwand zwischendurch geblättert hat (auch N → N+1 → N,
+        // dann ist dort wieder verdeckt). Altes reveal vergessen – solange aufgelöst ist, kommt es alle 3 s neu.
+        setRevealStep(null);
         setParticipants((prev) => mergeRows(data.participants, prev, lateP));
         setAnswers((prev) => mergeRows(data.answers, prev, lateA));
       },
