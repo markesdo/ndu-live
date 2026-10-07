@@ -46,10 +46,10 @@ export function useSession(code: string) {
         if (cancelled) return;
         setRefreshFailed(false);
         setError(null);
-        // Gemerktes reveal nur bei anderem Schritt vergessen – Nachladen passiert oft (Verbinden, Entsperren),
+        // Gemerktes reveal nur bei anderem Schritt vergessen (kam das reveal schon für den neuen Schritt, behalten) – Nachladen passiert oft (Verbinden, Entsperren),
         // das Ergebnis soll dabei nicht zurück auf „warten“ springen. N → N+1 → N im Standby verpasst: Die
         // Leinwand meldet alle 3 s shown: false, dann vergisst das Handy es (nextRevealStep).
-        setStep((prev) => { if (prev !== data.step) setRevealStep(null); return data.step; });
+        setStep((prev) => { if (prev !== data.step) setRevealStep((r) => (r === data.step ? r : null)); return data.step; });
         setParticipants((prev) => mergeRows(data.participants, prev, lateP));
         setAnswers((prev) => mergeRows(data.answers, prev, lateA));
       },
@@ -74,7 +74,7 @@ export function useSession(code: string) {
           const next = (payload.new as { active_step: number }).active_step;
           // Neuer Schritt = neues Token-Spiel (die Leinwand baut es beim Blättern ab und neu auf, mit neuem Durchlauf).
           // Den alten Stand vergessen, sonst nähme das Handy den neuen Durchlauf erst nach RUN_SWITCH_MS an.
-          setStep((prev) => { if (prev !== next) { setEnergyStage(null); setRevealStep(null); } return next; });
+          setStep((prev) => { if (prev !== next) { setEnergyStage(null); setRevealStep((r) => (r === next ? r : null)); } return next; });
         })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "participants", filter: `session_code=eq.${code}` },
         (payload) => {
