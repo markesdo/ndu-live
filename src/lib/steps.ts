@@ -18,7 +18,7 @@ export const STEPS: Step[] = [
   {
     kind: "poll",
     title: "Wovor hast du am meisten Respekt?",
-    options: ["Das Terminal", "Fehlermeldungen", "Dass ich nichts verstehe", "Gar nichts – los geht's"],
+    options: ["Das Terminal", "Fehlermeldungen", "Dass ich es nicht verstehe", "Gar nichts – los geht's"],
     punchline: "Alle drei kommen heute vor. Alle drei sind am Ende von Tag 1 kleiner.",
   },
   {
