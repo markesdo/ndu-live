@@ -12,8 +12,8 @@ export const STEPS: Step[] = [
   { kind: "lobby", title: "Scannen & dabei sein" },
   {
     kind: "poll",
-    title: "Wie viel hast du schon programmiert?",
-    options: ["Noch nie", "Ein bisschen HTML/Excel-Formeln", "Mal einen Kurs gemacht", "Ich kann's eigentlich"],
+    title: "Wie viel Code hast du schon geschrieben?",
+    options: ["Noch keine Zeile", "Ein bisschen HTML oder Excel-Formeln", "Mal einen Kurs gemacht", "Ich programmiere schon"],
   },
   {
     kind: "poll",

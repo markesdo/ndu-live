@@ -584,7 +584,7 @@ function Connecting() {
   );
 }
 
-// Persönliches Ergebnis nach dem Abstimmen: „Du und 11 andere: Noch nie.“ Zählt live mit.
+// Persönliches Ergebnis nach dem Abstimmen: „Du und 2 andere: Noch keine Zeile.“ Zählt live mit.
 function PersonalResult({ mine, meId, step, answers, participants }: { mine: string; meId: string; step: number; answers: { participant_id: string; step: number; value: string }[]; participants: Participant[] }) {
   const same = answers.filter((a) => a.step === step && a.value === mine && a.participant_id !== meId);
   const byId = new Map(participants.map((p) => [p.id, p]));
