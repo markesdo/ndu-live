@@ -25,6 +25,8 @@ export default function SwarmPad({ code, pid, emoji, name, stepRef, padStep }: {
   const want = useRef<Vec>({ x: 0, y: 0 }); // aktuelle Richtung (gerundet)
   const sent = useRef<Vec | null>(null);
   const sentAt = useRef(-Infinity);
+  // Steigt auch über ein Neuladen hinweg (Startwert = Uhrzeit, gesetzt beim ersten Senden), damit nie zwei
+  // Nachrichten dieselbe Nummer tragen.
   const seq = useRef(0);
   const sending = useRef(false);
   const down = useRef<{ t: number; moved: boolean } | null>(null);
@@ -42,7 +44,7 @@ export default function SwarmPad({ code, pid, emoji, name, stepRef, padStep }: {
       const next = want.current;
       if (!shouldSend(sent.current, next, now - sentAt.current)) return;
       sending.current = true;
-      seq.current += 1;
+      seq.current = Math.max(seq.current + 1, Date.now());
       sentAt.current = now;
       try {
         // Neueste Richtung zählt: Geht etwas verloren, wird nichts nachgeschickt – die nächste Änderung ersetzt es.

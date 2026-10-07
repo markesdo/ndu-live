@@ -11,7 +11,7 @@ import { supabase } from "@/lib/supabase";
 import type { Participant } from "@/lib/useSession";
 import { hash, ringColor } from "@/lib/avatar";
 import {
-  AUTONOMOUS_MS, HOLD_MS, acceptStick, boidAlpha, isActive, lerpStick, pushFrom, ringBlocked, ringNeeded, ringSpot, ringStep, spawnPoint,
+  AUTONOMOUS_MS, HOLD_MS, acceptStick, boidAlpha, currentTarget, isActive, lerpStick, pushFrom, ringBlocked, ringNeeded, ringSpot, ringStep, spawnPoint,
   type Rect, type RingState, type StickMsg, type SwarmInput, type Vec,
 } from "@/lib/swarm";
 
@@ -168,7 +168,7 @@ export default function Swarm({ code, participants, preview, avoidSelector }: {
 
       for (const b of list) {
         const pilot = input.get(b.id);
-        if (pilot) pilot.cur = lerpStick(pilot.cur, pilot.target, dtMs);
+        if (pilot) pilot.cur = lerpStick(pilot.cur, currentTarget(pilot, now), dtMs);
         let ax = 0, ay = 0, n = 0, cx = 0, cy = 0, avx = 0, avy = 0, sx = 0, sy = 0;
         for (const o of list) {
           if (o === b) continue;

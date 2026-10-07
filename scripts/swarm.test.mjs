@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  ACTIVE_MS, HOLD_MS, MIN_GAP_MS, SEND_MS, acceptStick, boidAlpha, isActive, lerpStick, quantise, ringNeeded, ringSpot, ringStep, shouldSend, spawnPoint,
+  ACTIVE_MS, HEARTBEAT_MS, HOLD_MS, MIN_GAP_MS, SEND_MS, STALE_MS, acceptStick, currentTarget, boidAlpha, isActive, lerpStick, quantise, ringNeeded, ringSpot, ringStep, shouldSend, spawnPoint,
 } from "../src/lib/swarm.ts";
 
 const ids = new Set(["a", "b"]);
@@ -19,7 +19,7 @@ test("Handy: höchstens alle 500 ms und nur bei merklicher Änderung", () => {
   assert.equal(shouldSend(null, { x: 1, y: 0 }, SEND_MS - 1), false);
   assert.equal(shouldSend(null, { x: 1, y: 0 }, SEND_MS), true);
   assert.equal(shouldSend(null, { x: 0, y: 0 }, SEND_MS), false); // nichts im Leerlauf
-  assert.equal(shouldSend({ x: 1, y: 0 }, { x: 0.98, y: 0.02 }, 5000), false);
+  assert.equal(shouldSend({ x: 1, y: 0 }, { x: 0.98, y: 0.02 }, 1000), false); // kleine Änderung, vor dem Herzschlag
   assert.equal(shouldSend({ x: 1, y: 0 }, { x: 0, y: 0 }, SEND_MS), true); // Loslassen geht raus
 });
 
@@ -113,4 +113,34 @@ test("Leinwand: riesige oder unendliche Zahlen werden gedeckelt oder verworfen, 
   assert.equal(acceptStick(m, { pid: "b", x: 0, y: 0, seq: Infinity }, ids, 0), true); // kaputte seq zählt als „keine“
   for (let i = 0; i < 1000; i++) acceptStick(m, { pid: `fremd${i}`, x: 1, y: 0, seq: i }, ids, i * 1000);
   assert.equal(m.size, 2);
+});
+
+test("Handy: hält der Daumen still, geht alle 2 s ein Herzschlag raus – losgelassen nichts", () => {
+  assert.equal(shouldSend({ x: 1, y: 0 }, { x: 1, y: 0 }, HEARTBEAT_MS - 1), false);
+  assert.equal(shouldSend({ x: 1, y: 0 }, { x: 1, y: 0 }, HEARTBEAT_MS), true);
+  assert.equal(shouldSend({ x: 0, y: 0 }, { x: 0, y: 0 }, 60_000), false);
+});
+
+test("Leinwand: Loslassen wird auch dicht nach der letzten Richtung angenommen (Review #6)", () => {
+  const m = new Map();
+  acceptStick(m, { pid: "a", x: 1, y: 0, seq: 1 }, ids, 0);
+  assert.equal(acceptStick(m, { pid: "a", x: 0, y: 0, seq: 2 }, ids, 70), true);
+  assert.deepEqual(m.get("a").target, { x: 0, y: 0 });
+});
+
+test("Leinwand: ohne Nachricht gilt die Person nach 3,5 s als losgelassen (gesperrter Bildschirm, Neuladen)", () => {
+  const m = new Map();
+  acceptStick(m, { pid: "a", x: 1, y: 0, seq: 1 }, ids, 0);
+  assert.deepEqual(currentTarget(m.get("a"), STALE_MS), { x: 1, y: 0 });
+  assert.deepEqual(currentTarget(m.get("a"), STALE_MS + 1), { x: 0, y: 0 });
+  // Herzschlag hält die Richtung und die Aktivität frisch
+  acceptStick(m, { pid: "a", x: 1, y: 0, seq: 2 }, ids, 3000);
+  assert.deepEqual(currentTarget(m.get("a"), 5000), { x: 1, y: 0 });
+  assert.equal(isActive(m.get("a"), 3000 + ACTIVE_MS - 1), true);
+});
+
+test("Leinwand: neu geladenes Handy (seq beginnt neu) lenkt sofort wieder", () => {
+  const m = new Map();
+  acceptStick(m, { pid: "a", x: 1, y: 0, seq: 40 }, ids, 0);
+  assert.equal(acceptStick(m, { pid: "a", x: 0, y: 1, seq: 1 }, ids, 1000), true);
 });

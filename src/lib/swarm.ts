@@ -11,6 +11,8 @@ export const ACTIVE_MS = 20_000; // so lange gilt jemand nach der letzten Eingab
 export const AUTONOMOUS_MS = 10_000; // so lange ohne jede Eingabe → der Schwarm fliegt allein zum Ring
 export const HOLD_MS = 1500; // so lange müssen genug im Ring sein, bis er platzt
 export const STICK_TAU_MS = 250; // Glättung der Steuerrichtung (2-Hz-Sprünge verschwinden)
+export const HEARTBEAT_MS = 2000; // Handy: hält der Daumen still, trotzdem alle 2 s den Stand schicken
+export const STALE_MS = 3500; // Leinwand: so lange ohne Nachricht → Richtung gilt als losgelassen (Bildschirm gesperrt, Nachricht verloren)
 
 export type Vec = { x: number; y: number };
 export type StickMsg = { pid: unknown; x: unknown; y: unknown; seq?: unknown };
@@ -25,10 +27,14 @@ export function quantise(v: Vec): Vec {
 }
 
 // Handy: Muss die neue Richtung raus? Nur nach SEND_MS und nur bei Änderung > MIN_DELTA (gegenüber dem zuletzt Gesendeten).
+// Hält der Daumen gelenkt still, geht alle HEARTBEAT_MS der Stand erneut raus – so weiß die Leinwand, dass noch
+// jemand lenkt, und eine verlorene Nachricht wird von selbst ersetzt.
 export function shouldSend(lastSent: Vec | null, next: Vec, sinceLastMs: number): boolean {
   if (sinceLastMs < SEND_MS) return false;
-  if (lastSent === null) return Math.hypot(next.x, next.y) > MIN_DELTA;
-  return Math.hypot(next.x - lastSent.x, next.y - lastSent.y) > MIN_DELTA;
+  const moving = Math.hypot(next.x, next.y) > MIN_DELTA;
+  if (lastSent === null) return moving;
+  if (Math.hypot(next.x - lastSent.x, next.y - lastSent.y) > MIN_DELTA) return true;
+  return moving && sinceLastMs >= HEARTBEAT_MS;
 }
 
 export type Pilot = { target: Vec; cur: Vec; seq: number; last: number; input: number };
@@ -47,8 +53,11 @@ export function acceptStick(input: SwarmInput, msg: StickMsg, knownIds: Readonly
   if (typeof msg.x !== "number" || typeof msg.y !== "number" || !Number.isFinite(msg.x) || !Number.isFinite(msg.y)) return false;
   const seq = typeof msg.seq === "number" && Number.isFinite(msg.seq) ? msg.seq : null;
   const p = input.get(msg.pid);
+  const release = Math.hypot(msg.x, msg.y) <= MIN_DELTA;
   if (p) {
-    if (now - p.last < MIN_GAP_MS) return false;
+    // Loslassen nie wegen des Abstands verwerfen: Kommt es dicht nach der letzten Richtung an (Netz-Schwankung),
+    // flöge der Avatar sonst weiter, bis die Person wieder lenkt.
+    if (!release && now - p.last < MIN_GAP_MS) return false;
     // Nur exakte Doppel verwerfen, keine „größer als zuletzt“-Regel: Sonst könnte jemand mit einer riesigen seq
     // im Namen einer anderen Person deren echte Nachrichten für immer aussperren. Es zählt einfach die neueste.
     if (seq !== null && seq === p.seq) return false;
@@ -62,6 +71,13 @@ export function acceptStick(input: SwarmInput, msg: StickMsg, knownIds: Readonly
   if (Math.hypot(t.x, t.y) > MIN_DELTA) pilot.input = now;
   input.set(msg.pid, pilot);
   return true;
+}
+
+// Leinwand: Welche Richtung gilt gerade? Ohne Nachricht seit STALE_MS (Bildschirm gesperrt, App im Hintergrund,
+// Seite neu geladen, Nachricht verloren) gilt die Person als losgelassen – lenkt sie weiter, kommt der Herzschlag.
+export function currentTarget(p: Pilot | undefined, now: number): Vec {
+  if (!p || now - p.last > STALE_MS) return { x: 0, y: 0 };
+  return p.target;
 }
 
 // Leinwand: Richtung exponentiell zur Ziel-Richtung ziehen (Zeitkonstante tau).
