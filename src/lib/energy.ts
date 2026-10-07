@@ -58,11 +58,6 @@ export type EnergyState = { total: number; people: Map<string, Person>; stage: n
 
 export const emptyEnergy = (): EnergyState => ({ total: 0, people: new Map(), stage: 0, stageStart: 0 });
 
-// Leinwand: eine Nachricht prüfen und zählen. Ändert den Zustand an Ort und Stelle (wird bis zu 12×/s
-// aufgerufen) und gibt zurück, wie viele Tokens gezählt wurden. Die Leinwand ist der einzige vertrauenswürdige Ort.
-// Bekannte Grenze: Die Person-ID kommt vom Handy. Wer per Skript fremde IDs schickt, umgeht den Anteil-Deckel –
-// für ein Mini-Spiel in Kauf genommen (es geht um nichts, und der Deckel pro Nachricht bleibt).
-// minStage: Stufen gehen auf der Leinwand nie zurück, auch wenn später jemand dazukommt und die Schwellen wachsen.
 // Wie viele Personen tragen in dieser Stufe schon bei (die sendende mitgezählt)?
 // Nur wer zuletzt noch gesendet hat, zählt: Wer einmal tippt und aufhört, fällt nach ACTIVE_MS heraus –
 // sonst drückten ein paar Einmal-Tipper den Anteil der Dauertipper unter das Stufenziel (Spiel hinge fest).
@@ -80,6 +75,11 @@ export function shareCap(active: number): number {
   return Math.min(1, Math.max(SHARE_CAP, 1 / Math.max(1, active) + 0.1));
 }
 
+// Leinwand: eine Nachricht prüfen und zählen. Ändert den Zustand an Ort und Stelle (wird bis zu 12×/s
+// aufgerufen) und gibt zurück, wie viele Tokens gezählt wurden. Die Leinwand ist der einzige vertrauenswürdige Ort.
+// Bekannte Grenze: Die Person-ID kommt vom Handy. Wer per Skript fremde IDs schickt, umgeht den Anteil-Deckel –
+// für ein Mini-Spiel in Kauf genommen (es geht um nichts, und der Deckel pro Nachricht bleibt).
+// minStage: Stufen gehen auf der Leinwand nie zurück, auch wenn später jemand dazukommt und die Schwellen wachsen.
 export function accept(state: EnergyState, msg: Msg, knownIds: ReadonlySet<string>, participants: number, now: number, minStage = 0): number {
   if (typeof msg.pid !== "string" || !knownIds.has(msg.pid)) return 0;
   const raw = typeof msg.n === "number" ? msg.n : Number.NaN;
