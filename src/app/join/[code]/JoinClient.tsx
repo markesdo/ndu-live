@@ -45,7 +45,7 @@ export default function JoinClient({ code }: { code: string }) {
   // Sofort sichtbare Antwort pro Schritt, bevor Supabase das Echo schickt
   const [local, setLocal] = useState<Record<number, string>>({});
   const [flying, setFlying] = useState<string | null>(null);
-  const [shownStep, setShownStep] = useState<number | null>(null); // Umfrage, deren Ergebnis schon zu sehen war
+  const [shown, setShown] = useState<string | null>(null); // „Person:Schritt“ – Umfrage, deren Ergebnis schon zu sehen war
   const [burst, setBurst] = useState<{ id: number; e: string; x: number; y: number; dx: number }[]>([]);
   const sending = useRef(new Set<number | "join">());
   const nameRef = useRef<HTMLInputElement>(null);
@@ -207,12 +207,14 @@ export default function JoinClient({ code }: { code: string }) {
   const myAnswer = me ? answers.find((a) => a.participant_id === me.id && a.step === step) : undefined;
   const mine = myAnswer?.value ?? local[step];
   // Kleine Gruppe: eigenes Ergebnis erst, wenn alle geantwortet haben – sonst verrät das Handy die Auflösung.
-  // Einmal gezeigt, bleibt es (`shownStep`), auch wenn danach noch jemand beitritt.
+  // Einmal gezeigt, bleibt es (`shown`), auch wenn danach noch jemand beitritt. Gemerkt wird nur mit der
+  // vom Server bestätigten Antwort und pro Person – nach einem Reset tritt man mit neuer id bei.
   const waitText = me && current.kind === "poll" && mine !== undefined
     ? phoneWaiting(answeredCount(answers, participants.map((p) => p.id), step, me.id), participants.length)
     : null;
-  if (me && current.kind === "poll" && mine !== undefined && !waitText && shownStep !== step) setShownStep(step);
-  const pollWait = shownStep === step ? null : waitText;
+  const shownKey = me ? `${me.id}:${step}` : null;
+  if (shownKey && current.kind === "poll" && myAnswer && !waitText && shown !== shownKey) setShown(shownKey);
+  const pollWait = shown === shownKey ? null : waitText;
 
   // 1) Beitreten
   if (!me) {
