@@ -23,6 +23,8 @@ export type LoadResult<P, A> = { ok: true; data: Snapshot<P, A> } | { ok: false;
 // - Realtime-Ankünfte während eines Ladens werden an apply übergeben, damit mergeRows sie behält.
 // - Fehler: erneut versuchen mit wachsendem Abstand; ein Erfolg löscht den wartenden Versuch.
 // - Falscher Session-Code ist nur beim ersten Laden endgültig – danach ein Aussetzer wie jeder andere.
+// - Jedes SUBSCRIBED lädt erneut (subscribed): Was zwischen erstem Laden und stehendem Kanal eingefügt wurde,
+//   kommt über Realtime nie an – ohne zweites Laden fehlt z. B. ein Handy, das genau dann beigetreten ist.
 export function createLoader<P, A>(opts: {
   fetchAll: () => Promise<LoadResult<P, A>>;
   apply: (data: Snapshot<P, A>, lateP: Set<string>, lateA: Set<string>) => void;
@@ -71,6 +73,9 @@ export function createLoader<P, A>(opts: {
 
   return {
     load,
+    // Kanal steht (erstes Mal oder nach Wiederverbinden): immer nachladen. Läuft das erste Laden noch,
+    // ergibt das genau ein weiteres Laden danach – dessen Snapshot entsteht erst, wenn der Kanal schon hört.
+    subscribed: () => load(),
     arrivedParticipant: (id: string) => { arrivedP.add(id); },
     arrivedAnswer: (id: string) => { arrivedA.add(id); },
     // Erstes Laden ist gescheitert (nicht: läuft noch) – dann soll das erste SUBSCRIBED erneut laden.

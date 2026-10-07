@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { useSession, type Participant } from "@/lib/useSession";
 import { AVATARS, AVATAR_NAMES, EMOJIS, EMOJI_NAMES, STEPS, courseUrl } from "@/lib/steps";
 import { ringColor } from "@/lib/avatar";
+import { answeredCount, phoneWaiting } from "@/lib/poll-small";
 import TokenPad from "./TokenPad";
 import SwarmPad from "./SwarmPad";
 
@@ -28,7 +29,7 @@ function buzz(pattern: number | number[]) {
 }
 
 export default function JoinClient({ code }: { code: string }) {
-  const { step, participants, answers, error, live, reconnecting, energyStage } = useSession(code);
+  const { step, participants, answers, error, live, reconnecting, energyStage, revealStep } = useSession(code);
   // Für die Token-Taste (eigener Schritt vor dem Finale): Sie sieht beim Weiterblättern sofort den neuen Schritt.
   const stepRef = useRef<number | null>(step);
   useEffect(() => { stepRef.current = step; }, [step]);
@@ -44,6 +45,7 @@ export default function JoinClient({ code }: { code: string }) {
   // Sofort sichtbare Antwort pro Schritt, bevor Supabase das Echo schickt
   const [local, setLocal] = useState<Record<number, string>>({});
   const [flying, setFlying] = useState<string | null>(null);
+  const [shown, setShown] = useState<string | null>(null); // „Person:Schritt“ – Umfrage, deren Ergebnis schon zu sehen war
   const [burst, setBurst] = useState<{ id: number; e: string; x: number; y: number; dx: number }[]>([]);
   const sending = useRef(new Set<number | "join">());
   const nameRef = useRef<HTMLInputElement>(null);
@@ -204,6 +206,16 @@ export default function JoinClient({ code }: { code: string }) {
   const current = STEPS[step] ?? STEPS[0];
   const myAnswer = me ? answers.find((a) => a.participant_id === me.id && a.step === step) : undefined;
   const mine = myAnswer?.value ?? local[step];
+  // Kleine Gruppe: eigenes Ergebnis erst, wenn alle geantwortet haben oder die Leinwand aufgelöst hat –
+  // sonst verrät das Handy die Auflösung.
+  // Einmal gezeigt, bleibt es (`shown`), auch wenn danach noch jemand beitritt. Gemerkt wird nur mit der
+  // vom Server bestätigten Antwort und pro Person – nach einem Reset tritt man mit neuer id bei.
+  const waitText = me && current.kind === "poll" && mine !== undefined
+    ? phoneWaiting(answeredCount(answers, participants.map((p) => p.id), step, me.id), participants.length, step, revealStep)
+    : null;
+  const shownKey = me ? `${me.id}:${step}` : null;
+  if (shownKey && current.kind === "poll" && myAnswer && !waitText && shown !== shownKey) setShown(shownKey);
+  const pollWait = shown === shownKey ? null : waitText;
 
   // 1) Beitreten
   if (!me) {
@@ -369,7 +381,9 @@ export default function JoinClient({ code }: { code: string }) {
           <Notice text={notice} />
           {current.kind === "poll" && mine !== undefined && (
             <>
-              <PersonalResult mine={mine} meId={me.id} step={step} answers={answers} participants={participants} />
+              {pollWait
+                ? <p className="rounded-2xl bg-card px-4 py-3 text-[17px] font-semibold leading-snug text-muted" aria-live="polite">{pollWait}</p>
+                : <PersonalResult mine={mine} meId={me.id} step={step} answers={answers} participants={participants} />}
               <QuickReactions onReact={react} />
             </>
           )}

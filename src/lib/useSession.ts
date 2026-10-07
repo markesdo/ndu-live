@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "./supabase";
 import { createLoader, mergeRows } from "./session-merge";
 import { nextPhoneStage, type PhoneStage } from "./energy";
+import { nextRevealStep } from "./poll-small";
 
 export type Participant = { id: string; name: string; emoji: string };
 export type Answer = { id: string; participant_id: string; step: number; value: string };
@@ -22,6 +23,8 @@ export function useSession(code: string) {
   const [refreshFailed, setRefreshFailed] = useState(false);
   // Stufe des Token-Spiels („Der Raum schreibt den Prompt“) – nur per Broadcast von der Leinwand, nicht gespeichert.
   const [energyStage, setEnergyStage] = useState<PhoneStage | null>(null);
+  // Schritt, für den die Leinwand eine kleine Umfrage aufgelöst hat (Broadcast „reveal“) – auch früh per →.
+  const [revealStep, setRevealStep] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -43,7 +46,10 @@ export function useSession(code: string) {
         if (cancelled) return;
         setRefreshFailed(false);
         setError(null);
-        setStep(data.step);
+        // Gemerktes reveal nur bei anderem Schritt vergessen (kam das reveal schon für den neuen Schritt, behalten) – Nachladen passiert oft (Verbinden, Entsperren),
+        // das Ergebnis soll dabei nicht zurück auf „warten“ springen. N → N+1 → N im Standby verpasst: Die
+        // Leinwand meldet alle 3 s shown: false, dann vergisst das Handy es (nextRevealStep).
+        setStep((prev) => { if (prev !== data.step) setRevealStep((r) => (r === data.step ? r : null)); return data.step; });
         setParticipants((prev) => mergeRows(data.participants, prev, lateP));
         setAnswers((prev) => mergeRows(data.answers, prev, lateA));
       },
@@ -68,7 +74,7 @@ export function useSession(code: string) {
           const next = (payload.new as { active_step: number }).active_step;
           // Neuer Schritt = neues Token-Spiel (die Leinwand baut es beim Blättern ab und neu auf, mit neuem Durchlauf).
           // Den alten Stand vergessen, sonst nähme das Handy den neuen Durchlauf erst nach RUN_SWITCH_MS an.
-          setStep((prev) => { if (prev !== next) setEnergyStage(null); return next; });
+          setStep((prev) => { if (prev !== next) { setEnergyStage(null); setRevealStep((r) => (r === next ? r : null)); } return next; });
         })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "participants", filter: `session_code=eq.${code}` },
         (payload) => {
@@ -77,7 +83,7 @@ export function useSession(code: string) {
           setParticipants((prev) => (prev.some((x) => x.id === p.id) ? prev : [...prev, p]));
         })
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "participants" },
-        () => load())
+        () => load()) // ohne Filter: Realtime filtert DELETEs nicht, das Nachladen holt nur diese Session
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "answers", filter: `session_code=eq.${code}` },
         (payload) => {
           const a = payload.new as Answer;
@@ -86,6 +92,9 @@ export function useSession(code: string) {
         })
       .on("broadcast", { event: "stage" }, ({ payload }) => {
         setEnergyStage((prev) => nextPhoneStage(prev, payload, Date.now()));
+      })
+      .on("broadcast", { event: "reveal" }, ({ payload }) => {
+        setRevealStep((prev) => nextRevealStep(prev, payload));
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "reactions", filter: `session_code=eq.${code}` },
         (payload) => {
@@ -97,9 +106,9 @@ export function useSession(code: string) {
         if (status === "SUBSCRIBED") {
           setLive(true);
           setChannelDown(false);
-          // Nach einem Wiederverbinden verpasste Änderungen nachholen (z. B. der nächste Schritt) –
-          // und beim ersten Verbinden, falls das erste Laden gescheitert ist.
-          if (subscribedOnce || loader.firstLoadFailed) load();
+          // Immer nachladen: nach einem Wiederverbinden das Verpasste (z. B. der nächste Schritt), beim ersten
+          // Verbinden alles, was zwischen erstem Laden und stehendem Kanal kam (z. B. ein gerade beigetretenes Handy).
+          loader.subscribed();
           subscribedOnce = true;
         } else {
           setLive(false);
@@ -119,5 +128,5 @@ export function useSession(code: string) {
     };
   }, [code]);
 
-  return { step, participants, answers, reactions, error, live, reconnecting: channelDown || refreshFailed, energyStage: energyStage?.stage ?? null };
+  return { step, participants, answers, reactions, error, live, reconnecting: channelDown || refreshFailed, energyStage: energyStage?.stage ?? null, revealStep };
 }

@@ -6,6 +6,8 @@ import { stripNames, type Spotlight, type Thema } from "@/lib/ai-shared";
 import { doneSpot, ideaTextForAi, requestSpot, type SpotQueue } from "@/lib/spot-queue";
 import { hash } from "@/lib/avatar";
 import { useFlash } from "@/lib/useFlash";
+import { REVEAL_EVERY_MS, answeredCount, isSmall, pollAdvance, revealed } from "@/lib/poll-small";
+import { supabase } from "@/lib/supabase";
 import type { Answer, Participant, Reaction } from "@/lib/useSession";
 import { TokensStage } from "./EnergyMeter";
 import Lobby from "./Lobby";
@@ -28,10 +30,12 @@ type Props = {
   preview?: boolean; // nur Vorschau: Token-Spiel mit erfundenen Tipps, ohne Netz
 };
 
-// Zwischenzustände nur auf der Leinwand (Pointe, Spotlight, Themen, Kurs-Hinweis). Sie gehören zu
+// Zwischenzustände nur auf der Leinwand (Auflösung, Pointe, Spotlight, Themen, Kurs-Hinweis). Sie gehören zu
 // einem Schritt und verfallen beim Weiterblättern – die Handys sehen davon nichts.
-type Sub = { step: number; punch: boolean; spot: string | null; hook: boolean; themen: Thema[] | null };
-const fresh = (step: number): Sub => ({ step, punch: false, spot: null, hook: false, themen: null });
+// `reveal`: kleine Umfrage aufgelöst – früh per →, oder gemerkt, sobald alle geantwortet haben
+// (src/lib/poll-small.ts). Wer danach dazukommt, verdeckt die Auflösung nicht wieder.
+type Sub = { step: number; reveal: boolean; punch: boolean; spot: string | null; hook: boolean; themen: Thema[] | null };
+const fresh = (step: number): Sub => ({ step, reveal: false, punch: false, spot: null, hook: false, themen: null });
 
 export default function Stage(props: Props) {
   const { code, step, participants, answers, reactions, live, reconnecting, go, onReset, onUnlock, dialogOpen, ai, children, preview } = props;
@@ -54,6 +58,39 @@ export default function Stage(props: Props) {
   const ideas = useMemo(() => answers.filter((a) => a.step === step && current.kind === "text"), [answers, step, current.kind]);
   const allIdeas = answers.filter((a) => STEPS[a.step]?.kind === "text").length;
   const names = participants.map((p) => p.name);
+  const answered = answeredCount(answers, participants.map((p) => p.id), step);
+  const pollShown = current.kind !== "poll" || revealed(answered, participants.length, sub.reveal);
+  // Auflösung einmal merken (Zustand aus dem Render anpassen, wie oben bei `sub`): sonst verdeckt
+  // eine Person, die nach der Auflösung beitritt, alles wieder, und → löst erneut auf statt weiterzublättern.
+  if (current.kind === "poll" && pollShown && !sub.reveal && isSmall(participants.length)) setSub({ ...sub, reveal: true });
+
+  // Stand einer kleinen Umfrage an die Handys melden – aufgelöst (früh per → oder weil alle geantwortet haben)
+  // oder verdeckt –, sofort bei jeder Änderung und alle 3 s erneut für Nachzügler, verlorene Nachrichten und
+  // Handys nach Standby. Über den Session-Kanal, den useSession schon offen hat – nicht abbauen.
+  // run: eigene Kennung pro Leinwand-Sitzung, wie beim Token-Spiel.
+  const [run] = useState(() => typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`);
+  const announce = !preview && current.kind === "poll" && isSmall(participants.length);
+  const shown = sub.reveal;
+  useEffect(() => {
+    if (!announce) return;
+    const session = supabase.channel(`session-${code}`);
+    const send = () => { session.send({ type: "broadcast", event: "reveal", payload: { step, run, shown } }).catch(() => {}); };
+    send();
+    const beat = setInterval(send, REVEAL_EVERY_MS);
+    return () => clearInterval(beat);
+  }, [announce, shown, code, step, run]);
+
+  // → und „Weiter“ gehen denselben Weg: Spotlight schließen, Umfrage auflösen, Pointe, Kurs-Hinweis, nächster Schritt.
+  function advance() {
+    if (sub.spot) return patch({ spot: null });
+    if (current.kind === "poll") {
+      const next = pollAdvance(pollShown, !!current.punchline, sub.punch);
+      if (next === "reveal") return patch({ reveal: true });
+      if (next === "punch") return patch({ punch: true });
+    }
+    if (current.kind === "finale" && !sub.hook && courseUrl(host)) return patch({ hook: true });
+    go(step + 1);
+  }
 
   // KI: Ergebnis pro Idee merken, pro Route höchstens eine Anfrage gleichzeitig, nie blockierend.
   const [spots, setSpotsState] = useState<Record<string, SpotState>>({});
@@ -126,15 +163,13 @@ export default function Stage(props: Props) {
       if (k === "Escape") { if (sub.spot) patch({ spot: null }); else if (sub.hook) patch({ hook: false }); return; }
       if (k === "ArrowRight" || k === " ") {
         e.preventDefault();
-        if (sub.spot) return patch({ spot: null });
-        if (current.kind === "poll" && current.punchline && !sub.punch) return patch({ punch: true });
-        if (current.kind === "finale" && !sub.hook && courseUrl(host)) return patch({ hook: true });
-        return go(step + 1);
+        return advance();
       }
       if (k === "ArrowLeft") {
         if (sub.spot) return patch({ spot: null });
         if (sub.hook) return patch({ hook: false });
         if (sub.punch) return patch({ punch: false });
+        if (sub.reveal && !revealed(answered, participants.length, false)) return patch({ reveal: false });
         return go(step - 1);
       }
       if ((k === "h" || k === "H") && current.kind === "finale") return patch({ hook: !sub.hook });
@@ -171,7 +206,7 @@ export default function Stage(props: Props) {
                 {current.kind === "tokens" && <TokensStage code={code} title={current.title} hint={current.hint} participants={participants} preview={!!preview} />}
                 {current.kind === "poll" && (
                   <Poll step={step} title={current.title} options={current.options} participants={participants} answers={answers}
-                    punchline={current.punchline} showPunchline={sub.punch} />
+                    punchline={current.punchline} showPunchline={sub.punch} revealed={pollShown} />
                 )}
                 {current.kind === "text" && (
                   <IdeaWall title={current.title} ideas={ideas} participants={participants} spotlightId={sub.spot}
@@ -182,7 +217,7 @@ export default function Stage(props: Props) {
             </AnimatePresence>
           </section>
           {/* Bei der Pointe tritt der Wartebereich zurück – sonst rutscht er bei 1080 px aus dem Bild. */}
-          {current.kind === "poll" && !sub.punch && <div className="relative z-10"><Pool key={step} step={step} participants={participants} answers={answers} /></div>}
+          {current.kind === "poll" && !sub.punch && <div className="relative z-10"><Pool key={step} step={step} participants={participants} answers={answers} revealed={pollShown} /></div>}
           <AnimatePresence>
             {spotIdea && (
               <SpotlightView key="spot" idea={spotIdea} author={participants.find((p) => p.id === spotIdea.participant_id)}
@@ -215,7 +250,7 @@ export default function Stage(props: Props) {
             {current.kind === "text" && <button onClick={requestThemen} className="rounded-lg border border-border px-3 py-1">Themen</button>}
             {current.kind === "finale" && courseUrl(host) && <button onClick={() => patch({ hook: !sub.hook })} className="rounded-lg border border-border px-3 py-1">Kurs-Website</button>}
             <button onClick={() => go(step - 1)} className="rounded-lg border border-border px-3 py-1">Zurück</button>
-            <button onClick={() => go(step + 1)} className="rounded-lg border border-border px-3 py-1">Weiter</button>
+            <button onClick={advance} className="rounded-lg border border-border px-3 py-1">Weiter</button>
             <button onClick={onReset} className="rounded-lg border border-border px-3 py-1">Reset</button>
           </span>
         </footer>
