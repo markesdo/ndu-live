@@ -29,14 +29,14 @@ export const STEPS: Step[] = [
   },
   // Gemeinsames Mini-Spiel vor dem Finale: jeder Tipp ist ein Token, der Raum schreibt den Prompt bis „Deployed“.
   { kind: "tokens", title: "Jetzt baut der Raum.", hint: "Tippt auf euren Handys – jeder Tipp ist ein Token." },
-  { kind: "finale", title: "Diese App: 60 Minuten, keine Zeile Code." },
+  { kind: "finale", title: "Diese App: 180 Minuten, keine Zeile Code." },
 ];
 
 // Zahlen für die Enthüllung im Finale. Vor dem Kurs aktualisieren:
 //   Zeilen:  find src -name '*.ts' -o -name '*.tsx' -o -name '*.css' | xargs cat | wc -l
 //   Commits: git rev-list --count HEAD
 // (Nicht beim Build berechnen: Vercel klont nur flach, die Commit-Zahl wäre falsch.)
-export const STACK = { minuten: 60, zeilen: 2073, commits: 12 };
+export const STACK = { minuten: 180, zeilen: 3764, commits: 76 }; // Stand 7.10.2026; Commits inkl. dieses PRs und seines Merge-Commits
 
 // Kurs-Website für den Abschluss: NEXT_PUBLIC_COURSE_URL (auf Vercel setzen). Ohne Variable nur lokal
 // ein Ersatz – derselbe Rechner, Port 4321. Online ohne Variable gibt es keinen Link (null).
