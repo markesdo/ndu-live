@@ -14,7 +14,9 @@ export const STAGES = ["Prompt schreiben", "Agent arbeitet …", "Deployen …"]
 
 // Der Prompt, den der Raum schreibt. Er beschreibt die App, in der alle gerade sitzen.
 export const promptWords = (n: number) =>
-  `Baue eine App, mit der ${n === 1 ? "eine Person" : `${n} Leute`} im Hörsaal live abstimmen, Ideen teilen und am Ende jubeln.`.split(" ");
+  (n === 1
+    ? "Baue eine App, mit der eine Person im Hörsaal live abstimmt, Ideen teilt und am Ende jubelt."
+    : `Baue eine App, mit der ${n} Leute im Hörsaal live abstimmen, Ideen teilen und am Ende jubeln.`).split(" ");
 
 // Handy: Wie viele Tipps gehen in die nächste Nachricht? 0 → keine Nachricht.
 export function batchSize(pending: number): number {

@@ -172,6 +172,6 @@ test("Leinwand: Einmal-Tipper blockieren die Dauertipper nicht (Review #5, dritt
 });
 
 test("Prompt-Zeile grammatisch auch für eine Person und kleine Gruppen", () => {
-  assert.ok(promptWords(1).join(" ").includes("mit der eine Person im Hörsaal"));
+  assert.equal(promptWords(1).join(" "), "Baue eine App, mit der eine Person im Hörsaal live abstimmt, Ideen teilt und am Ende jubelt.");
   assert.ok(promptWords(4).join(" ").includes("mit der 4 Leute im Hörsaal"));
 });

@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  ACTIVE_MS, HEARTBEAT_MS, HOLD_MS, MIN_GAP_MS, SEND_MS, STALE_MS, acceptStick, currentTarget, boidAlpha, isActive, lerpStick, quantise, ringNeeded, ringSpot, ringStep, shouldSend, spawnPoint, avatarRadius, escapeRect, labelGap,
+  ACTIVE_MS, HEARTBEAT_MS, HOLD_MS, MIN_GAP_MS, SEND_MS, STALE_MS, acceptStick, currentTarget, boidAlpha, isActive, lerpStick, quantise, ringNeeded, ringSpot, ringStep, shouldSend, spawnPoint, avatarRadius, escapeRect, labelGap, mergeRects,
 } from "../src/lib/swarm.ts";
 
 const ids = new Set(["a", "b"]);
@@ -187,4 +187,15 @@ test("Sperrzone hart: Avatar samt Namen wird aus Text und QR-Code geschoben, nie
   const kopf = { x: 0, y: 0, w: 1920, h: 60 };
   assert.deepEqual(escapeRect({ x: 900, y: 5 }, kopf, 40, 70), { x: 900, y: -70 }); // ohne Bühne: oben wäre am nächsten
   assert.deepEqual(escapeRect({ x: 900, y: 5 }, kopf, 40, 70, { w: 1920, h: 1080 }), { x: 900, y: 100 });
+});
+
+test("Sperrzonen dicht übereinander: Avatar landet nicht über der Überschrift (Review #6, Ping-Pong)", () => {
+  const R = 48, bounds = { w: 1920, h: 1080 };
+  const ueberschrift = { x: 77, y: 300, w: 420, h: 120 }, zaehler = { x: 77, y: 444, w: 300, h: 140 };
+  let p = { x: 300, y: 430 };
+  for (let k = 0; k < 5; k++) for (const a of mergeRects([ueberschrift, zaehler], R, R * 1.7, R)) p = escapeRect(p, a, R, R * 1.7, bounds);
+  const drin = (r) => p.x > r.x - R && p.x < r.x + r.w + R && p.y > r.y - R * 1.7 && p.y < r.y + r.h + R;
+  assert.equal(drin(ueberschrift) || drin(zaehler), false, `Avatar bei ${p.x},${p.y}`);
+  assert.equal(mergeRects([ueberschrift, zaehler], R, R * 1.7, R).length, 1);
+  assert.equal(mergeRects([{ x: 0, y: 0, w: 10, h: 10 }, { x: 900, y: 900, w: 10, h: 10 }], R, R, R).length, 2);
 });

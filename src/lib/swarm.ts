@@ -114,6 +114,29 @@ export function labelGap(labelA: number, labelB: number, r: number, unit: number
   return Math.max(r * 2.6, (labelA + labelB) / 2 + 16 * unit);
 }
 
+// Sperrzonen, die (um die Avatar-Ränder vergrößert) einander berühren, zu einer zusammenfassen. Sonst schiebt die eine
+// den Avatar in die nächste und die schiebt ihn zurück – er bliebe über dem Text hängen (Review #6: Überschrift und
+// Zähler liegen nur 24 px auseinander).
+export function mergeRects(rects: Rect[], padX: number, padTop: number, padBottom: number): Rect[] {
+  const out = rects.map((r) => ({ ...r }));
+  const touch = (a: Rect, b: Rect) =>
+    a.x - padX < b.x + b.w + padX && b.x - padX < a.x + a.w + padX &&
+    a.y - padTop < b.y + b.h + padBottom && b.y - padTop < a.y + a.h + padBottom;
+  for (let changed = true; changed; ) {
+    changed = false;
+    outer: for (let i = 0; i < out.length; i++) for (let j = i + 1; j < out.length; j++) {
+      if (!touch(out[i], out[j])) continue;
+      const a = out[i], b = out[j];
+      const x = Math.min(a.x, b.x), y = Math.min(a.y, b.y);
+      out[i] = { x, y, w: Math.max(a.x + a.w, b.x + b.w) - x, h: Math.max(a.y + a.h, b.y + b.h) - y };
+      out.splice(j, 1);
+      changed = true;
+      break outer;
+    }
+  }
+  return out;
+}
+
 // Harte Sperrzone: Liegt ein Avatar (Kreis mit Radius r, Name darunter bis r + below) in einem Rechteck, wird er zur
 // nächsten Kante hinausgeschoben. Gibt die neue Position zurück (unverändert, wenn frei). Für Text und QR-Code –
 // der weiche Schub allein reicht bei schnellem Lenken nicht.

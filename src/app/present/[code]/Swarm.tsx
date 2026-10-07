@@ -11,7 +11,7 @@ import { supabase } from "@/lib/supabase";
 import type { Participant } from "@/lib/useSession";
 import { hash, ringColor } from "@/lib/avatar";
 import {
-  AUTONOMOUS_MS, HOLD_MS, acceptStick, avatarRadius, boidAlpha, currentTarget, escapeRect, isActive, labelGap, lerpStick, pushFrom, ringBlocked, ringNeeded, ringSpot, ringStep, spawnPoint,
+  AUTONOMOUS_MS, HOLD_MS, acceptStick, avatarRadius, boidAlpha, currentTarget, escapeRect, isActive, labelGap, lerpStick, mergeRects, pushFrom, ringBlocked, ringNeeded, ringSpot, ringStep, spawnPoint,
   type Rect, type RingState, type StickMsg, type SwarmInput, type Vec,
 } from "@/lib/swarm";
 
@@ -218,7 +218,7 @@ export default function Swarm({ code, participants, preview, avoidSelector }: {
         b.vx *= 0.995; b.vy *= 0.995;
         b.x += b.vx * dt; b.y += b.vy * dt;
         // Harte Sperrzonen (Überschrift, Zähler, Hinweis, QR-Code, Kopf- und Fußzeile): Avatar samt Namen nie darüber.
-        for (const a of avoid) {
+        for (const a of mergeRects(avoid, R, R * 1.7, R)) {
           const q = escapeRect(b, a, R, R * 1.7, { w, h });
           if (q.x !== b.x) b.vx = 0;
           if (q.y !== b.y) b.vy = 0;
