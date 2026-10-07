@@ -40,7 +40,7 @@ test("Leinwand: Mindestabstand und Reihenfolge (seq) pro Person, Richtung gedeck
   assert.equal(acceptStick(m, { pid: "a", x: 5, y: 0, seq: 1 }, ids, 0), true);
   assert.deepEqual(m.get("a").target, { x: 1, y: 0 });
   assert.equal(acceptStick(m, { pid: "a", x: 0, y: 1, seq: 2 }, ids, MIN_GAP_MS - 1), false);
-  assert.equal(acceptStick(m, { pid: "a", x: 0, y: 1, seq: 1 }, ids, MIN_GAP_MS), false); // Doppel
+  assert.equal(acceptStick(m, { pid: "a", x: 0, y: 1, seq: 1 }, ids, MIN_GAP_MS), false); // Doppel/verspätet
   assert.equal(acceptStick(m, { pid: "a", x: 0, y: 1, seq: 2 }, ids, MIN_GAP_MS), true);
   assert.equal(acceptStick(m, { pid: "b", x: 0, y: 1, seq: 1 }, ids, MIN_GAP_MS), true); // andere Person: eigener Takt
 });
@@ -139,8 +139,10 @@ test("Leinwand: ohne Nachricht gilt die Person nach 3,5 s als losgelassen (gespe
   assert.equal(isActive(m.get("a"), 3000 + ACTIVE_MS - 1), true);
 });
 
-test("Leinwand: neu geladenes Handy (seq beginnt neu) lenkt sofort wieder", () => {
+test("Leinwand: verspätete ältere Nachricht überschreibt das Loslassen nicht (Review #6)", () => {
   const m = new Map();
-  acceptStick(m, { pid: "a", x: 1, y: 0, seq: 40 }, ids, 0);
-  assert.equal(acceptStick(m, { pid: "a", x: 0, y: 1, seq: 1 }, ids, 1000), true);
+  const t0 = 1_800_000_000_000; // seq = Uhrzeit des Handys
+  acceptStick(m, { pid: "a", x: 0, y: 0, seq: t0 + 600 }, ids, 0); // Loslassen kommt zuerst an
+  assert.equal(acceptStick(m, { pid: "a", x: 1, y: 0, seq: t0 }, ids, 300), false); // alte Richtung, verspätet
+  assert.deepEqual(m.get("a").target, { x: 0, y: 0 });
 });

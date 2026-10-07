@@ -12,6 +12,7 @@ export const AUTONOMOUS_MS = 10_000; // so lange ohne jede Eingabe → der Schwa
 export const HOLD_MS = 1500; // so lange müssen genug im Ring sein, bis er platzt
 export const STICK_TAU_MS = 250; // Glättung der Steuerrichtung (2-Hz-Sprünge verschwinden)
 export const HEARTBEAT_MS = 2000; // Handy: hält der Daumen still, trotzdem alle 2 s den Stand schicken
+export const SEQ_WINDOW_MS = 5 * 60_000; // Leinwand: nur innerhalb dieses Abstands gilt „ältere seq = verspätet“
 export const STALE_MS = 3500; // Leinwand: so lange ohne Nachricht → Richtung gilt als losgelassen (Bildschirm gesperrt, Nachricht verloren)
 
 export type Vec = { x: number; y: number };
@@ -41,11 +42,12 @@ export type Pilot = { target: Vec; cur: Vec; seq: number; last: number; input: n
 export type SwarmInput = Map<string, Pilot>;
 
 // Leinwand: eine Nachricht prüfen und als Ziel-Richtung übernehmen. true = angenommen.
-// Unbekannte Person, alte/doppelte Nachricht (seq), zu kurzer Abstand oder kaputte Zahlen → verworfen.
+// Unbekannte Person, verspätete/doppelte Nachricht (seq, siehe unten), zu kurzer Abstand (außer Loslassen)
+// oder kaputte Zahlen → verworfen.
 // Bekannte Grenze (wie beim Token-Zähler in energy.ts): Die Person-ID kommt vom Handy, und die IDs aller sehen alle.
 // Wer mit dem öffentlichen Schlüssel selbst Broadcasts schickt, kann einen fremden Avatar lenken – für ein Spiel in der
 // Lobby in Kauf genommen. Schaden kann es nicht: Nur bekannte IDs zählen (Zustand höchstens so groß wie die Lobby),
-// Richtung auf Länge 1 gedeckelt, eine Nachricht pro 200 ms und Person, und aus der Nachricht wird nur x/y gelesen –
+// Richtung auf Länge 1 gedeckelt, höchstens eine Richtung pro 200 ms und Person, und aus der Nachricht wird nur x/y gelesen –
 // Namen und Emojis auf der Leinwand kommen aus der Teilnehmer-Tabelle, nie aus einer Nachricht.
 export function acceptStick(input: SwarmInput, msg: StickMsg, knownIds: ReadonlySet<string>, now: number): boolean {
   if (!msg || typeof msg !== "object") return false;
@@ -58,9 +60,10 @@ export function acceptStick(input: SwarmInput, msg: StickMsg, knownIds: Readonly
     // Loslassen nie wegen des Abstands verwerfen: Kommt es dicht nach der letzten Richtung an (Netz-Schwankung),
     // flöge der Avatar sonst weiter, bis die Person wieder lenkt.
     if (!release && now - p.last < MIN_GAP_MS) return false;
-    // Nur exakte Doppel verwerfen, keine „größer als zuletzt“-Regel: Sonst könnte jemand mit einer riesigen seq
-    // im Namen einer anderen Person deren echte Nachrichten für immer aussperren. Es zählt einfach die neueste.
-    if (seq !== null && seq === p.seq) return false;
+    // seq des Handys ist eine Uhrzeit in ms. Ältere Nachrichten (verspätet angekommen) verwerfen – aber nur, wenn
+    // sie nah an der letzten liegen. Liegt die letzte über SEQ_WINDOW_MS daneben (gefälschte riesige seq, Neuladen
+    // mit anderer Uhr), gilt die neue Nachricht: So kann niemand ein echtes Handy dauerhaft aussperren.
+    if (seq !== null && seq <= p.seq && p.seq - seq < SEQ_WINDOW_MS) return false;
   }
   const t = quantise({ x: msg.x, y: msg.y });
   const pilot: Pilot = p ?? { target: { x: 0, y: 0 }, cur: { x: 0, y: 0 }, seq: -1, last: -Infinity, input: -Infinity };

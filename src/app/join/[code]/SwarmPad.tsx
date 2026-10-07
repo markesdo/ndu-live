@@ -1,7 +1,7 @@
 "use client";
 // „Schwarm“ – Handy-Seite: ein runder Daumen-Pad, der Knopf ist das eigene Emoji. Die Richtung geht höchstens alle
-// 500 ms und nur bei Änderung per Broadcast (REST, ohne Kanal-Beitritt) an die Leinwand; beim Loslassen einmal (0,0).
-// Im Leerlauf geht nichts raus. Sobald die Leinwand weiterblättert, verschwindet der Pad und es geht nichts mehr raus.
+// 500 ms per Broadcast (REST, ohne Kanal-Beitritt) an die Leinwand – bei Änderung, und solange der Daumen gelenkt
+// stillhält alle 2 s als Herzschlag; beim Loslassen einmal (0,0). Losgelassen geht nichts raus. Sobald die Leinwand weiterblättert, verschwindet der Pad und es geht nichts mehr raus.
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { supabase } from "@/lib/supabase";
