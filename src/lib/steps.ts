@@ -1,9 +1,12 @@
 // Die Schritte der Live-Session. Reihenfolge = active_step in der Tabelle sessions.
 // Zwischenzustände wie Pointe, Spotlight oder Kurs-Hinweis leben nur auf der Leinwand –
 // die Handys sehen sie nie.
+import { respektPointe } from "./pointe.ts";
+
 export type Step =
   | { kind: "lobby"; title: string }
-  | { kind: "poll"; title: string; options: string[]; punchline?: string }
+  // punchline: Pointe nach der Auflösung, aus den Stimmen je Option (Reihenfolge wie options).
+  | { kind: "poll"; title: string; options: string[]; punchline?: (counts: number[]) => string }
   | { kind: "text"; title: string; placeholder: string; after: string }
   | { kind: "tokens"; title: string; hint: string }
   | { kind: "finale"; title: string };
@@ -19,7 +22,7 @@ export const STEPS: Step[] = [
     kind: "poll",
     title: "Wovor hast du am meisten Respekt?",
     options: ["Das Terminal", "Fehlermeldungen", "Dass ich etwas kaputt mache", "Gar nichts – los geht's"],
-    punchline: "Alle drei kommen heute vor. Alle drei sind am Ende von Tag 1 kleiner.",
+    punchline: respektPointe,
   },
   {
     kind: "text",

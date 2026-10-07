@@ -7,7 +7,7 @@ import { ARRIVE, ARRIVE_FROM, ARRIVE_TO, CountUp, FLY, Glyph, T } from "./parts"
 // Ab dieser Zahl wird der Schwarm zu unruhig – dann ruhige Balken (nur transform, kein width).
 export const SWARM_MAX = 48;
 
-type Props = { step: number; title: string; options: string[]; participants: Participant[]; answers: Answer[]; punchline?: string; showPunchline: boolean; revealed: boolean };
+type Props = { step: number; title: string; options: string[]; participants: Participant[]; answers: Answer[]; punchline?: (counts: number[]) => string; showPunchline: boolean; revealed: boolean };
 
 // Kleine Gruppe: großer Avatar mit Namen darunter. Feste Breite, damit lange Namen sich nicht überlappen.
 const NAMED_W = "w-[clamp(64px,min(6vw,10vh),120px)]";
@@ -31,6 +31,7 @@ export default function Poll({ step, title, options, participants, answers, punc
   const swarm = participants.length <= SWARM_MAX;
   const counts = options.map((o) => stepAnswers.filter((a) => a.value === o).length);
   const lead = Math.max(...counts);
+  const pointe = punchline?.(counts);
   const small = isSmall(participants.length);
   const leadVisible = small ? revealed && lead > 0 : participants.length > 0 && total >= participants.length / 2 && lead > 0;
   // Reihenfolge der Ankunft beim Auflösen: Zeile für Zeile, 60 ms Abstand.
@@ -82,10 +83,10 @@ export default function Poll({ step, title, options, participants, answers, punc
       </div>
       <p className={`${small ? "mt-[2.4vh]" : "mt-[4vh]"} ${T.meta} text-muted`}>{total} von {participants.length} haben geantwortet</p>
       <AnimatePresence>
-        {punchline && showPunchline && (
+        {pointe && showPunchline && (
           <motion.p initial={ARRIVE_FROM} animate={ARRIVE_TO} exit={{ opacity: 0 }} transition={ARRIVE}
             className="mt-[4vh] max-w-[70vw] font-display text-[clamp(36px,3.6vw,68px)] font-extrabold leading-[1.1] tracking-[-0.02em] text-accent-2">
-            {punchline}
+            {pointe}
           </motion.p>
         )}
       </AnimatePresence>
