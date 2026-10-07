@@ -95,8 +95,6 @@ export function lerpStick(cur: Vec, target: Vec, dtMs: number, tauMs = STICK_TAU
 // Wer zählt als aktiv? Eingabe innerhalb von ACTIVE_MS.
 export const isActive = (p: Pilot | undefined, now: number) => !!p && now - p.input < ACTIVE_MS;
 
-// Wie viele müssen im Ring sein? 60 % der Aktiven, aufgerundet, aber mindestens zwei – es soll ein Zusammenfinden
-// sein (3 Aktive → 2, 4 → 3). Allein (Probe) reicht eine Person. Ohne Aktive (Schwarm fliegt allein) zählen alle.
 // Zählt ein Avatar als „im Ring“? Seine Mitte darf bis zu 0,6 Avatar-Radien über den Ring hinaus liegen – der Kreis
 // überlappt den Ring dann noch deutlich. Sonst schieben die Abstandsregeln (Namen neben- und übereinander) den
 // letzten nötigen Avatar knapp an den Rand, und der Ring füllt sich nie lange genug (Live-Test 1280×720).
@@ -104,6 +102,8 @@ export function inRing(p: Vec, ring: Vec, ringR: number, avatarR: number): boole
   return Math.hypot(p.x - ring.x, p.y - ring.y) < ringR + avatarR * 0.6;
 }
 
+// Wie viele müssen im Ring sein? 60 % der Aktiven, aufgerundet, aber mindestens zwei – es soll ein Zusammenfinden
+// sein (3 Aktive → 2, 4 → 3). Allein (Probe) reicht eine Person. Ohne Aktive (Schwarm fliegt allein) zählen alle.
 export function ringNeeded(active: number): number {
   if (active <= 0) return 0;
   if (active === 1) return 1;

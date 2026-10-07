@@ -188,13 +188,16 @@ export default function Swarm({ code, participants, preview, avoidSelector }: {
       // (Abstand ringMargin zu jeder Sperrzone) – der Kreis selbst darf hinter Text liegen. Den ganzen Kreis frei zu
       // verlangen, ließ bei wenig Platz nur den Notfall-Ort übrig, mitten auf der Hinweiszeile (Review #6).
       const ringMargin = R * 1.6;
-      // Neu setzen nur, wenn sich das Layout geändert hat (Lobby wird kompakt, Fenstergröße) oder die Mitte jetzt
-      // schlechter liegt als beim Setzen erreicht – nicht in jedem Schritt, wenn schon der beste Platz knapp ist.
-      const key = blocked.map((a) => `${Math.round(a.x)},${Math.round(a.y)},${Math.round(a.w)},${Math.round(a.h)}`).join("|") + `|${Math.round(R)}`;
-      if (blocked.length && (!ringPos || key !== blockedKey || clearance(ringPos, blocked) < Math.min(ringMargin, ringClear) - 1)) {
-        blockedKey = key;
+      // Neu setzen nur, wenn die Mitte jetzt schlechter liegt als beim Setzen erreicht (Text ist darüber gewachsen) –
+      // oder wenn der Ring im Notfall knapp gesetzt wurde und sich das Layout seitdem geändert hat (Lobby wird kompakt).
+      // Ein Layoutwechsel allein (Zähler 9 → 10, sechste Person, Animation) verschiebt keinen gut liegenden Ring:
+      // sonst spränge er weg, wenn die Gruppe ihn fast gefüllt hat (Review #6).
+      const key = blocked.map((a) => `${Math.round(a.x / 8)},${Math.round(a.y / 8)},${Math.round(a.w / 8)},${Math.round(a.h / 8)}`).join("|");
+      const cramped = ringClear < ringMargin;
+      if (blocked.length && (!ringPos || clearance(ringPos, blocked) < Math.min(ringMargin, ringClear) - 1 || (cramped && key !== blockedKey))) {
         placeRing(blocked, R);
       }
+      blockedKey = key;
 
       for (const b of list) {
         const pilot = input.get(b.id);
