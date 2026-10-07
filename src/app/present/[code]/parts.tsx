@@ -23,14 +23,21 @@ export const T = {
 };
 
 // Avatar mit Ringfarbe aus dem Namen.
-export function Glyph({ p, size = "md", me = false }: { p: Participant; size?: "sm" | "md" | "lg"; me?: boolean }) {
-  const dim = size === "lg" ? "h-[clamp(56px,4.6vw,88px)] w-[clamp(56px,4.6vw,88px)] text-[clamp(30px,2.6vw,48px)]"
+// `done`: kleiner Haken unten rechts (kleine Umfrage: hat geantwortet, Wahl noch verdeckt).
+export function Glyph({ p, size = "md", me = false, done = false }: { p: Participant; size?: "sm" | "md" | "lg" | "xl"; me?: boolean; done?: boolean }) {
+  const dim = size === "xl" ? "h-[clamp(52px,min(4.7vw,7.6vh),92px)] w-[clamp(52px,min(4.7vw,7.6vh),92px)] text-[clamp(28px,min(2.6vw,4.2vh),50px)]"
+    : size === "lg" ? "h-[clamp(56px,4.6vw,88px)] w-[clamp(56px,4.6vw,88px)] text-[clamp(30px,2.6vw,48px)]"
     : size === "md" ? "h-[clamp(40px,3.2vw,60px)] w-[clamp(40px,3.2vw,60px)] text-[clamp(22px,1.8vw,34px)]"
     : "h-9 w-9 text-lg";
   return (
-    <span className={`grid shrink-0 place-items-center rounded-full bg-card ${dim}`}
-      style={{ boxShadow: `inset 0 0 0 ${me ? 3 : 2}px ${ringColor(p.name)}` }} title={p.name}>
+    <span className={`relative grid shrink-0 place-items-center rounded-full bg-card ${dim}`}
+      style={{ boxShadow: `inset 0 0 0 ${me || size === "xl" ? 3 : 2}px ${ringColor(p.name)}` }} title={p.name}>
       <span aria-hidden>{p.emoji}</span>
+      {done && (
+        <span aria-hidden className="absolute -bottom-0.5 -right-0.5 grid h-[38%] w-[38%] place-items-center rounded-full bg-ok text-bg">
+          <svg viewBox="0 0 24 24" fill="none" className="h-[70%] w-[70%]"><path d="M5 12.5l4.5 4.5L19 7.5" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        </span>
+      )}
     </span>
   );
 }

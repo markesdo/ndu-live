@@ -39,11 +39,17 @@ const KINDS: Record<string, number> = {
   lobby: idx("lobby"), poll: idx("poll"), poll2: idx("poll", 1), text: idx("text"), themen: idx("text"), tokens: idx("tokens"), finale: idx("finale"),
 };
 
-function answersFor(many = false): Answer[] {
+// Kleine Gruppe: Stimmen verteilt statt alle in der ersten Zeile (Person p wählt SMALL_PICKS[p]).
+const SMALL_PICKS = [0, 1, 0, 2, 0, 3];
+
+function answersFor(many = false, small = false): Answer[] {
   const out: Answer[] = [];
   const addPoll = (step: number, counts: number[]) => {
+    const options = (STEPS[step] as { options: string[] }).options;
+    const vote = (p: number, oi: number) => out.push({ id: `a${step}-${p}`, participant_id: PEOPLE[p].id, step, value: options[oi] });
+    if (small) { SMALL_PICKS.forEach((oi, p) => vote(p, oi)); return; }
     let p = 0;
-    counts.forEach((c, oi) => { for (let k = 0; k < c; k++, p++) out.push({ id: `a${step}-${p}`, participant_id: PEOPLE[p].id, step, value: (STEPS[step] as { options: string[] }).options[oi] }); });
+    counts.forEach((c, oi) => { for (let k = 0; k < c; k++, p++) vote(p, oi); });
   };
   addPoll(KINDS.poll, POLL1);
   addPoll(KINDS.poll2, POLL2);
@@ -52,17 +58,19 @@ function answersFor(many = false): Answer[] {
 }
 
 
-export default function PreviewClient({ code, vorschau }: { code: string; vorschau: string }) {
+// `n`: Teilnehmende (z. B. ?vorschau=poll&n=4 für die kleine Gruppe mit Auflösung).
+export default function PreviewClient({ code, vorschau, n }: { code: string; vorschau: string; n?: number }) {
   const [step, setStep] = useState(KINDS[vorschau] ?? 0);
-  const all = useMemo(() => answersFor(vorschau === "themen"), [vorschau]);
+  const all = useMemo(() => answersFor(vorschau === "themen", !!n && n <= 6), [vorschau, n]);
   // Ankünfte und Stimmen nach und nach, damit Begrüßung und Schwarm zu sehen sind.
   const [tick, setTick] = useState(0);
   useEffect(() => { const t = setInterval(() => setTick((n) => n + 1), 700); return () => clearInterval(t); }, []);
   // Lobby: höchstens 10 wie im echten Kurs, nach und nach ankommend (Begrüßung, Schwarm).
-  const people = step === 0 ? PEOPLE.slice(0, Math.min(10, 3 + tick)) : PEOPLE;
+  const people = step === 0 ? PEOPLE.slice(0, Math.min(10, 3 + tick)) : n ? PEOPLE.slice(0, n) : PEOPLE;
   const answers = all.filter((a) => {
     if (a.step !== step || STEPS[step].kind !== "poll") return true;
-    return Number(a.id.split("-")[1]) < tick * 2;
+    // Kleine Gruppe: eine Stimme pro Takt, damit Warten und Auflösung zu sehen sind.
+    return Number(a.id.split("-")[1]) < (n && n <= 6 ? tick : tick * 2);
   });
   const reactions: Reaction[] = STEPS[step].kind === "finale"
     ? Array.from({ length: Math.min(tick, 25) }, (_, i) => ({ id: `${(tick - i).toString(16).padStart(6, "0")}${i}`, emoji: EMOJIS[(tick - i) % EMOJIS.length], created_at: "" }))
