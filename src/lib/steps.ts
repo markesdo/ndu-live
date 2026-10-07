@@ -23,7 +23,7 @@ export const STEPS: Step[] = [
   },
   {
     kind: "text",
-    title: "Was würdest du bauen, wenn du es könntest?",
+    title: "Welche App würdest du gern bauen?",
     placeholder: "Eine App, die …",
     after: "Gespeichert. Am Tag 2 holst du dir deine Idee hier wieder ab.",
   },
