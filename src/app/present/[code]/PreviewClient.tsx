@@ -58,7 +58,8 @@ export default function PreviewClient({ code, vorschau }: { code: string; vorsch
   // Ankünfte und Stimmen nach und nach, damit Begrüßung und Schwarm zu sehen sind.
   const [tick, setTick] = useState(0);
   useEffect(() => { const t = setInterval(() => setTick((n) => n + 1), 700); return () => clearInterval(t); }, []);
-  const people = step === 0 ? PEOPLE.slice(0, Math.min(PEOPLE.length, 10 + tick)) : PEOPLE;
+  // Lobby: höchstens 10 wie im echten Kurs, nach und nach ankommend (Begrüßung, Schwarm).
+  const people = step === 0 ? PEOPLE.slice(0, Math.min(10, 3 + tick)) : PEOPLE;
   const answers = all.filter((a) => {
     if (a.step !== step || STEPS[step].kind !== "poll") return true;
     return Number(a.id.split("-")[1]) < tick * 2;

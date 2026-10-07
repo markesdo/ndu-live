@@ -9,6 +9,7 @@ import { useFlash } from "@/lib/useFlash";
 import type { Answer, Participant, Reaction } from "@/lib/useSession";
 import { TokensStage } from "./EnergyMeter";
 import Lobby from "./Lobby";
+import Swarm from "./Swarm";
 import Poll, { Pool } from "./Poll";
 import { IdeaWall, SpotlightView, type SpotState } from "./Ideas";
 import Finale from "./Finale";
@@ -151,7 +152,9 @@ export default function Stage(props: Props) {
   return (
     <MotionConfig reducedMotion="user">
       <main data-mood={mood} className="stage relative flex min-h-screen flex-col overflow-hidden px-[4vw] py-[3vh]">
-        <header className="relative z-10 flex items-center justify-between">
+        {/* Lobby-Spiel „Schwarm“: Canvas über die ganze Bühne, hinter dem Text; baut sich beim Weiterblättern ab. */}
+        {current.kind === "lobby" && <Swarm code={code} participants={participants} preview={!!preview} avoidSelector="[data-swarm-meiden]" />}
+        <header data-swarm-meiden className="relative z-10 flex items-center justify-between">
           <span className={`${T.meta} uppercase tracking-[0.14em] text-muted`}>NDU Coding 2026 · Live</span>
           <span className="flex items-center gap-4">
             <LivePill count={participants.length} live={live} reconnecting={reconnecting} />
@@ -205,7 +208,7 @@ export default function Stage(props: Props) {
         </div>
 
         {/* Steuerung (dezent) */}
-        <footer className="relative z-10 flex items-center justify-between text-sm text-muted opacity-40 transition hover:opacity-100">
+        <footer data-swarm-meiden className="relative z-10 flex items-center justify-between text-sm text-muted opacity-40 transition hover:opacity-100">
           <span>{step + 1} / {STEPS.length} · ← → zum Blättern{current.kind === "text" ? " · Karte anklicken = Spotlight · T = Themen" : ""}{current.kind === "finale" ? " · H = Kurs-Website" : ""}</span>
           <span className="flex gap-2">
             {onUnlock && <button onClick={onUnlock} className="rounded-lg border border-accent px-3 py-1 text-accent">Steuerung freischalten</button>}
