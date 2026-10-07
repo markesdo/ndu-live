@@ -5,8 +5,8 @@ import { respektPointe } from "./pointe.ts";
 
 export type Step =
   | { kind: "lobby"; title: string }
-  // punchline: Pointe nach der Auflösung, aus den Stimmen je Option (Reihenfolge wie options).
-  | { kind: "poll"; title: string; options: string[]; punchline?: (counts: number[]) => string }
+  // punchline: Pointe nach der Auflösung, aus den Stimmen je Optionstext.
+  | { kind: "poll"; title: string; options: string[]; punchline?: (votes: Record<string, number>) => string }
   | { kind: "text"; title: string; placeholder: string; after: string }
   | { kind: "tokens"; title: string; hint: string }
   | { kind: "finale"; title: string };

@@ -1,4 +1,5 @@
 "use client";
+import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import type { Answer, Participant } from "@/lib/useSession";
 import { countLabel, isSmall } from "@/lib/poll-small";
@@ -7,7 +8,7 @@ import { ARRIVE, ARRIVE_FROM, ARRIVE_TO, CountUp, FLY, Glyph, T } from "./parts"
 // Ab dieser Zahl wird der Schwarm zu unruhig – dann ruhige Balken (nur transform, kein width).
 export const SWARM_MAX = 48;
 
-type Props = { step: number; title: string; options: string[]; participants: Participant[]; answers: Answer[]; punchline?: (counts: number[]) => string; showPunchline: boolean; revealed: boolean };
+type Props = { step: number; title: string; options: string[]; participants: Participant[]; answers: Answer[]; punchline?: (votes: Record<string, number>) => string; showPunchline: boolean; revealed: boolean };
 
 // Kleine Gruppe: großer Avatar mit Namen darunter. Feste Breite, damit lange Namen sich nicht überlappen.
 const NAMED_W = "w-[clamp(64px,min(6vw,10vh),120px)]";
@@ -31,7 +32,10 @@ export default function Poll({ step, title, options, participants, answers, punc
   const swarm = participants.length <= SWARM_MAX;
   const counts = options.map((o) => stepAnswers.filter((a) => a.value === o).length);
   const lead = Math.max(...counts);
-  const pointe = punchline?.(counts);
+  // Pointe einfrieren, sobald sie erscheint: Eine späte Stimme soll den Satz auf der Leinwand nicht umschreiben.
+  const [pointe, setPointe] = useState<string>();
+  if (showPunchline && pointe === undefined && punchline) setPointe(punchline(Object.fromEntries(options.map((o, i) => [o, counts[i]]))));
+  if (!showPunchline && pointe !== undefined) setPointe(undefined);
   const small = isSmall(participants.length);
   const leadVisible = small ? revealed && lead > 0 : participants.length > 0 && total >= participants.length / 2 && lead > 0;
   // Reihenfolge der Ankunft beim Auflösen: Zeile für Zeile, 60 ms Abstand.

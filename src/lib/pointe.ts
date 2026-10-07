@@ -1,24 +1,31 @@
 // Pointe zur Frage „Wovor hast du am meisten Respekt?“ – passend zu dem, was wirklich gewählt wurde.
-// counts: Stimmen je Option, in der Reihenfolge der Optionen: die ersten drei sind die Respekt-Themen,
-// die vierte ist „Gar nichts – los geht's“. Vorher stand fest „Alle drei …“, auch wenn nur eine Option gewählt war.
-const THEMEN = [
-  { anfang: "Das Terminal", mitte: "das Terminal", plural: false },
-  { anfang: "Fehlermeldungen", mitte: "Fehlermeldungen", plural: true },
-  { anfang: "Etwas kaputt machen", mitte: "etwas kaputt machen", plural: false },
-];
+// Vorher stand fest „Alle drei …“, auch wenn nur eine Option gewählt war.
+// Zuordnung über den Text der Option, nicht über die Position: Umsortieren in steps.ts verschiebt nichts.
+export const RESPEKT = {
+  terminal: "Das Terminal",
+  fehler: "Fehlermeldungen",
+  kaputt: "Dass ich etwas kaputt mache",
+  nichts: "Gar nichts – los geht's",
+};
 const NACHSATZ = "Am Ende von Tag 1 ist der Respekt davor kleiner.";
 
-export function respektPointe(counts: number[]): string {
-  if (counts.every((n) => !n)) return "Das Terminal, Fehlermeldungen, etwas kaputt machen – alles kommt heute vor.";
-  const gewaehlt = THEMEN.filter((_, i) => (counts[i] ?? 0) > 0);
-  if (gewaehlt.length === 0) {
-    return "Gut so – das Terminal, Fehlermeldungen und etwas kaputt machen kommen heute trotzdem vor.";
+// votes: Stimmen je Optionstext.
+export function respektPointe(votes: Record<string, number>): string {
+  const hat = (o: string) => (votes[o] ?? 0) > 0;
+  const nomen = [
+    hat(RESPEKT.terminal) && { text: "das Terminal", plural: false },
+    hat(RESPEKT.fehler) && { text: "Fehlermeldungen", plural: true },
+  ].filter((x): x is { text: string; plural: boolean } => !!x);
+  const kaputt = hat(RESPEKT.kaputt);
+
+  if (!nomen.length && !kaputt) {
+    const alles = "das Terminal und Fehlermeldungen dran – und wir machen absichtlich etwas kaputt.";
+    return hat(RESPEKT.nichts) ? `Gut so. Heute kommen trotzdem ${alles}` : `Heute kommen ${alles}`;
   }
-  if (gewaehlt.length === THEMEN.length) return `Alle drei kommen heute vor. ${NACHSATZ}`;
-  if (gewaehlt.length === 1) {
-    const [t] = gewaehlt;
-    return `${t.anfang} ${t.plural ? "kommen" : "kommt"} heute vor. ${NACHSATZ}`;
-  }
-  const [a, b] = gewaehlt;
-  return `${a.anfang} und ${b.mitte} kommen heute vor. ${NACHSATZ}`;
+  if (nomen.length === 2 && kaputt) return `Alle drei kommen heute dran. ${NACHSATZ}`;
+  if (!nomen.length) return `Heute machen wir absichtlich etwas kaputt – und holen es zurück. ${NACHSATZ}`;
+
+  const verb = nomen.length > 1 || nomen[0].plural ? "kommen" : "kommt";
+  const satz = `Heute ${verb} ${nomen.map((n) => n.text).join(" und ")} dran`;
+  return `${satz}${kaputt ? " – und wir machen absichtlich etwas kaputt" : ""}. ${NACHSATZ}`;
 }
