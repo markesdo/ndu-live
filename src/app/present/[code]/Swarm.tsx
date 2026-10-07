@@ -11,7 +11,7 @@ import { supabase } from "@/lib/supabase";
 import type { Participant } from "@/lib/useSession";
 import { hash, ringColor } from "@/lib/avatar";
 import {
-  AUTONOMOUS_MS, HOLD_MS, acceptStick, avatarRadius, boidAlpha, clearance, currentTarget, escapeRect, isActive, lerpStick, mergeRects, pushFrom, ringBlocked, ringNeeded, ringSpot, ringStep, separation, spawnPoint,
+  AUTONOMOUS_MS, HOLD_MS, acceptStick, avatarRadius, boidAlpha, clearance, currentTarget, escapeRect, isActive, lerpStick, inRing, mergeRects, pushFrom, ringNeeded, ringSpot, ringStep, separation, spawnPoint,
   type Rect, type RingState, type StickMsg, type SwarmInput, type Vec,
 } from "@/lib/swarm";
 
@@ -159,13 +159,19 @@ export default function Swarm({ code, participants, preview, avoidSelector }: {
 
     // Ring-Radius: zwei, drei Avatare passen bequem hinein – bei wenig Freiraum um die Mitte kleiner, damit die
     // gezählte Fläche dort liegt, wo Avatare auch hinkommen.
-    let ringR = 0;
-    const ringRadius = () => ringR || radius() * 3.4;
+    // Größe als Faktor des aktuellen Avatar-Radius: wächst/schrumpft mit, wenn sich R ändert (6. Person, Fenstergröße).
+    // Mindestens 3 R – kleiner passt die geforderte Zahl Avatare samt Namensabstand nicht hinein (Review #6).
+    let ringK = 3.4;
+    let ringClear = Infinity; // beim Setzen erreichter Freiraum der Mitte – maßgeblich für „blockiert“
+    let blockedKey = "";
+    const ringRadius = () => radius() * ringK;
     const placeRing = (blockedNow: Rect[], R: number) => {
-      ringPos = ringSpot(w, h, R * 1.6, blockedNow, rand);
-      const c = clearance(ringPos, blockedNow);
-      ringR = Math.min(R * 3.4, Math.max(R * 2.4, c + R * 1.5));
-      cv.dataset.ring = `${Math.round(ringPos.x)},${Math.round(ringPos.y)},${Math.round(ringR)}`; // für Tests und zum Nachsehen
+      // Erst einen Platz suchen, an dem der ganze Ring frei liegt (nicht über Fußzeile/Knöpfen); gibt es keinen,
+      // liefert ringSpot den Punkt mit dem größten Freiraum, und der Ring wird passend kleiner.
+      ringPos = ringSpot(w, h, R * 3.4, blockedNow, rand);
+      ringClear = clearance(ringPos, blockedNow);
+      ringK = Math.min(3.4, Math.max(3, ringClear / R + 1.5));
+      cv.dataset.ring = `${Math.round(ringPos.x)},${Math.round(ringPos.y)},${Math.round(R * ringK)}`; // für Tests und zum Nachsehen
     };
     const step = (dtMs: number, now: number) => {
       const dt = dtMs / 1000;
@@ -182,7 +188,13 @@ export default function Swarm({ code, participants, preview, avoidSelector }: {
       // (Abstand ringMargin zu jeder Sperrzone) – der Kreis selbst darf hinter Text liegen. Den ganzen Kreis frei zu
       // verlangen, ließ bei wenig Platz nur den Notfall-Ort übrig, mitten auf der Hinweiszeile (Review #6).
       const ringMargin = R * 1.6;
-      if (blocked.length && (!ringPos || ringBlocked(ringPos, ringMargin, blocked))) placeRing(blocked, R);
+      // Neu setzen nur, wenn sich das Layout geändert hat (Lobby wird kompakt, Fenstergröße) oder die Mitte jetzt
+      // schlechter liegt als beim Setzen erreicht – nicht in jedem Schritt, wenn schon der beste Platz knapp ist.
+      const key = blocked.map((a) => `${Math.round(a.x)},${Math.round(a.y)},${Math.round(a.w)},${Math.round(a.h)}`).join("|") + `|${Math.round(R)}`;
+      if (blocked.length && (!ringPos || key !== blockedKey || clearance(ringPos, blocked) < Math.min(ringMargin, ringClear) - 1)) {
+        blockedKey = key;
+        placeRing(blocked, R);
+      }
 
       for (const b of list) {
         const pilot = input.get(b.id);
@@ -209,10 +221,18 @@ export default function Swarm({ code, participants, preview, avoidSelector }: {
           ay += (pilot.cur.y * maxSpeed - b.vy) * 2.5;
         } else if (autonomous && ringPos) {
           // Niemand lenkt: Der Schwarm sucht den Ring selbst – die Bühne sieht nie kaputt aus.
-          ax += (ringPos.x - b.x) * 0.9; ay += (ringPos.y - b.y) * 0.9;
+          // Feder zur Ringmitte MIT Dämpfung – ohne pendelte der Schwarm alle ~3 s hinaus und wieder hinein und blieb
+          // nie lange genug drin (Live-Test 1280×720: 4 von 4 drin, dann 2, dann wieder 4 …).
+          ax += (ringPos.x - b.x) * 0.9 - b.vx * 1.8; ay += (ringPos.y - b.y) * 0.9 - b.vy * 1.8;
         } else {
           b.wander += (rand() - 0.5) * 2 * dt;
           ax += Math.cos(b.wander) * maxSpeed * 0.6; ay += Math.sin(b.wander) * maxSpeed * 0.6;
+        }
+        // Der Ring fängt ein: Wer drin ist, wird sanft zur Mitte gezogen und gebremst – mit dem Daumen am Handy (0,5 s
+        // Takt, Netz-Verzögerung) bliebe man sonst am Rand hängen oder schösse hinaus.
+        if (ringPos) {
+          const rdx = ringPos.x - b.x, rdy = ringPos.y - b.y;
+          if (Math.hypot(rdx, rdy) < ringRadius()) { ax += rdx * 0.6 - b.vx * 1.2; ay += rdy * 0.6 - b.vy * 1.2; }
         }
         // Sperrzonen (QR, Text) und Ränder: sanft wegdrücken.
         for (const a of avoid) {
@@ -246,8 +266,9 @@ export default function Swarm({ code, participants, preview, avoidSelector }: {
         const active = list.filter((b) => isActive(input.get(b.id), now));
         const pool = active.length ? active : list;
         const rr = ringRadius();
-        const inside = pool.filter((b) => Math.hypot(b.x - ringPos!.x, b.y - ringPos!.y) < rr);
+        const inside = pool.filter((b) => inRing(b, ringPos!, rr, R));
         const out = ringStep(ring, inside.length, ringNeeded(pool.length), dtMs);
+        cv.dataset.drin = `${inside.length}/${ringNeeded(pool.length)}/${pool.length}/${Math.round(out.ring.heldMs)}`; // für Tests
         ring = out.ring;
         if (out.burst) {
           cv.dataset.runde = String(ring.round); // Zahl der geplatzten Ringe – für Tests und zum Nachsehen

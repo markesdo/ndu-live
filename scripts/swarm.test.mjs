@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  ACTIVE_MS, HEARTBEAT_MS, HOLD_MS, MIN_GAP_MS, SEND_MS, STALE_MS, acceptStick, clearance, separation, stackGap, currentTarget, boidAlpha, isActive, lerpStick, quantise, ringNeeded, ringSpot, ringStep, shouldSend, spawnPoint, avatarRadius, escapeRect, labelGap, mergeRects,
+  ACTIVE_MS, HEARTBEAT_MS, HOLD_MS, MIN_GAP_MS, SEND_MS, STALE_MS, acceptStick, clearance, inRing, separation, stackGap, currentTarget, boidAlpha, isActive, lerpStick, quantise, ringNeeded, ringSpot, ringStep, shouldSend, spawnPoint, avatarRadius, escapeRect, labelGap, mergeRects,
 } from "../src/lib/swarm.ts";
 
 const ids = new Set(["a", "b"]);
@@ -224,4 +224,10 @@ test("Leinwand: Avatare übereinander halten Platz für den Namen dazwischen (Re
   assert.deepEqual(separation(0, stackGap(r) + 1, r, 60, 60, 1), { x: 0, y: 0 });
   // nebeneinander mit langen Namen: Schub in x
   assert.ok(separation(r * 2.7, 0, r, 160, 160, 1).x < 0);
+});
+
+test("Leinwand: ein Avatar am Ringrand zählt noch als drin (Live-Test 1280×720)", () => {
+  const ring = { x: 0, y: 0 }, rr = 109, R = 32;
+  assert.equal(inRing({ x: rr + R * 0.5, y: 0 }, ring, rr, R), true);
+  assert.equal(inRing({ x: rr + R * 0.7, y: 0 }, ring, rr, R), false);
 });
