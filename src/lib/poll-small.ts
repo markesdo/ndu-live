@@ -48,12 +48,23 @@ export function phoneWaiting(answered: number, participants: number, step: numbe
   return `Gesendet · warten auf die anderen (${answered} von ${participants})`;
 }
 
-// Leinwand → Handys: Broadcast „reveal“ auf dem Kanal session-<code>, solange die Umfrage aufgelöst ist.
-// Wiederholt, damit Nachzügler und verlorene Nachrichten aufholen. run = Leinwand-Sitzung (wie beim Token-Spiel).
+// Leinwand → Handys: Broadcast „reveal“ auf dem Kanal session-<code>, solange eine kleine Umfrage läuft –
+// mit shown: aufgelöst oder verdeckt. Wiederholt, damit Nachzügler, verlorene Nachrichten und Handys nach
+// Standby aufholen. run = Leinwand-Sitzung (wie beim Token-Spiel).
 export const REVEAL_EVERY_MS = 3000;
 
 // Handy: Schritt aus einer reveal-Nachricht, null bei allem Kaputten.
 export function revealStepOf(payload: unknown): number | null {
   const s = (payload as { step?: unknown } | null)?.step;
   return typeof s === "number" && Number.isInteger(s) && s >= 0 ? s : null;
+}
+
+// Handy: neuer revealStep nach einer reveal-Nachricht. Aufgelöst → dieser Schritt; verdeckt → vergessen, falls
+// gerade dieser Schritt gemerkt ist (Leinwand hat zurückgenommen oder ist N → N+1 → N geblättert).
+// Kaputte Nachricht → nichts ändern. Ohne shown (alte Leinwand) gilt: aufgelöst.
+export function nextRevealStep(prev: number | null, payload: unknown): number | null {
+  const s = revealStepOf(payload);
+  if (s === null) return prev;
+  if ((payload as { shown?: unknown }).shown === false) return prev === s ? null : prev;
+  return s;
 }

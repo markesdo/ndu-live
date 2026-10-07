@@ -3,6 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   SMALL_MAX, isSmall, answeredCount, allAnswered, revealed, pollAdvance, countLabel, phoneWaiting, revealStepOf,
+  nextRevealStep,
 } from "../src/lib/poll-small.ts";
 
 test("klein heißt 1 bis 6 Personen", () => {
@@ -85,3 +86,17 @@ test("revealStepOf nimmt nur ganze Schritt-Nummern aus der Nachricht", () => {
     assert.equal(revealStepOf(bad), null, JSON.stringify(bad));
   }
 });
+
+test("nextRevealStep folgt der Leinwand: aufgelöst merken, verdeckt vergessen", () => {
+  assert.equal(nextRevealStep(null, { step: 2, run: "x", shown: true }), 2);
+  assert.equal(nextRevealStep(null, { step: 2, run: "x" }), 2); // alte Leinwand ohne shown
+  // Leinwand zeigt Schritt 2 wieder verdeckt (zurückgenommen oder N → N+1 → N): vergessen
+  assert.equal(nextRevealStep(2, { step: 2, run: "x", shown: false }), null);
+  // verdeckt für einen anderen Schritt: gemerkten Schritt nicht anfassen
+  assert.equal(nextRevealStep(2, { step: 3, run: "x", shown: false }), 2);
+  assert.equal(nextRevealStep(null, { step: 3, run: "x", shown: false }), null);
+  // Kaputtes ändert nichts
+  assert.equal(nextRevealStep(2, null), 2);
+  assert.equal(nextRevealStep(2, { step: "2", shown: false }), 2);
+});
+

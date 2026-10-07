@@ -64,19 +64,21 @@ export default function Stage(props: Props) {
   // eine Person, die nach der Auflösung beitritt, alles wieder, und → löst erneut auf statt weiterzublättern.
   if (current.kind === "poll" && pollShown && !sub.reveal && isSmall(participants.length)) setSub({ ...sub, reveal: true });
 
-  // Auflösung an die Handys melden (früh per → oder weil alle geantwortet haben), alle 3 s erneut für
-  // Nachzügler und verlorene Nachrichten. Über den Session-Kanal, den useSession schon offen hat – nicht
-  // abbauen. run: eigene Kennung pro Leinwand-Sitzung, wie beim Token-Spiel.
+  // Stand einer kleinen Umfrage an die Handys melden – aufgelöst (früh per → oder weil alle geantwortet haben)
+  // oder verdeckt –, sofort bei jeder Änderung und alle 3 s erneut für Nachzügler, verlorene Nachrichten und
+  // Handys nach Standby. Über den Session-Kanal, den useSession schon offen hat – nicht abbauen.
+  // run: eigene Kennung pro Leinwand-Sitzung, wie beim Token-Spiel.
   const [run] = useState(() => typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`);
-  const announceReveal = !preview && current.kind === "poll" && sub.reveal;
+  const announce = !preview && current.kind === "poll" && isSmall(participants.length);
+  const shown = sub.reveal;
   useEffect(() => {
-    if (!announceReveal) return;
+    if (!announce) return;
     const session = supabase.channel(`session-${code}`);
-    const send = () => { session.send({ type: "broadcast", event: "reveal", payload: { step, run } }).catch(() => {}); };
+    const send = () => { session.send({ type: "broadcast", event: "reveal", payload: { step, run, shown } }).catch(() => {}); };
     send();
     const beat = setInterval(send, REVEAL_EVERY_MS);
     return () => clearInterval(beat);
-  }, [announceReveal, code, step, run]);
+  }, [announce, shown, code, step, run]);
 
   // → und „Weiter“ gehen denselben Weg: Spotlight schließen, Umfrage auflösen, Pointe, Kurs-Hinweis, nächster Schritt.
   function advance() {

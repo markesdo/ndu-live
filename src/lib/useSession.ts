@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "./supabase";
 import { createLoader, mergeRows } from "./session-merge";
 import { nextPhoneStage, type PhoneStage } from "./energy";
-import { revealStepOf } from "./poll-small";
+import { nextRevealStep } from "./poll-small";
 
 export type Participant = { id: string; name: string; emoji: string };
 export type Answer = { id: string; participant_id: string; step: number; value: string };
@@ -46,10 +46,10 @@ export function useSession(code: string) {
         if (cancelled) return;
         setRefreshFailed(false);
         setError(null);
-        setStep(data.step);
-        // Nach Standby/Wiederverbinden ist unklar, ob die Leinwand zwischendurch geblättert hat (auch N → N+1 → N,
-        // dann ist dort wieder verdeckt). Altes reveal vergessen – solange aufgelöst ist, kommt es alle 3 s neu.
-        setRevealStep(null);
+        // Gemerktes reveal nur bei anderem Schritt vergessen – Nachladen passiert oft (Verbinden, Entsperren),
+        // das Ergebnis soll dabei nicht zurück auf „warten“ springen. N → N+1 → N im Standby verpasst: Die
+        // Leinwand meldet alle 3 s shown: false, dann vergisst das Handy es (nextRevealStep).
+        setStep((prev) => { if (prev !== data.step) setRevealStep(null); return data.step; });
         setParticipants((prev) => mergeRows(data.participants, prev, lateP));
         setAnswers((prev) => mergeRows(data.answers, prev, lateA));
       },
@@ -83,7 +83,7 @@ export function useSession(code: string) {
           setParticipants((prev) => (prev.some((x) => x.id === p.id) ? prev : [...prev, p]));
         })
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "participants" },
-        () => load())
+        () => load()) // ohne Filter: Realtime filtert DELETEs nicht, das Nachladen holt nur diese Session
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "answers", filter: `session_code=eq.${code}` },
         (payload) => {
           const a = payload.new as Answer;
@@ -94,8 +94,7 @@ export function useSession(code: string) {
         setEnergyStage((prev) => nextPhoneStage(prev, payload, Date.now()));
       })
       .on("broadcast", { event: "reveal" }, ({ payload }) => {
-        const s = revealStepOf(payload);
-        if (s !== null) setRevealStep(s);
+        setRevealStep((prev) => nextRevealStep(prev, payload));
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "reactions", filter: `session_code=eq.${code}` },
         (payload) => {
