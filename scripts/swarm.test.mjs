@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  ACTIVE_MS, HEARTBEAT_MS, HOLD_MS, MIN_GAP_MS, SEND_MS, STALE_MS, acceptStick, clearance, inRing, separation, stackGap, currentTarget, boidAlpha, isActive, lerpStick, quantise, ringNeeded, ringSpot, ringStep, shouldSend, spawnPoint, avatarRadius, escapeRect, labelGap, mergeRects,
+  ACTIVE_MS, HEARTBEAT_MS, HOLD_MS, MIN_GAP_MS, SEND_MS, STALE_MS, acceptStick, clearance, inRing, ringOffStage, separation, stackGap, currentTarget, boidAlpha, isActive, lerpStick, quantise, ringNeeded, ringSpot, ringStep, shouldSend, spawnPoint, avatarRadius, escapeRect, labelGap, mergeRects,
 } from "../src/lib/swarm.ts";
 
 const ids = new Set(["a", "b"]);
@@ -230,4 +230,10 @@ test("Leinwand: ein Avatar am Ringrand zählt noch als drin (Live-Test 1280×720
   const ring = { x: 0, y: 0 }, rr = 109, R = 32;
   assert.equal(inRing({ x: rr + R * 0.5, y: 0 }, ring, rr, R), true);
   assert.equal(inRing({ x: rr + R * 0.7, y: 0 }, ring, rr, R), false);
+});
+
+test("Leinwand: Ring nach Verkleinerung außerhalb der Bühne wird erkannt (Review #6, Vollbild verlassen)", () => {
+  assert.equal(ringOffStage({ x: 1600, y: 800 }, 1280, 720, 32), true);
+  assert.equal(ringOffStage({ x: 600, y: 400 }, 1280, 720, 32), false);
+  assert.equal(ringOffStage({ x: 600, y: 700 }, 1280, 720, 32), true); // unten kein Platz für den Namen
 });

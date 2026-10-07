@@ -95,6 +95,12 @@ export function lerpStick(cur: Vec, target: Vec, dtMs: number, tauMs = STICK_TAU
 // Wer zählt als aktiv? Eingabe innerhalb von ACTIVE_MS.
 export const isActive = (p: Pilot | undefined, now: number) => !!p && now - p.input < ACTIVE_MS;
 
+// Liegt die Ringmitte außerhalb der Fläche, die Avatare erreichen (Rand R, unten Platz für den Namen)? Nach einer
+// Größenänderung (Vollbild verlassen) muss der Ring dann neu gesetzt werden – sonst bleibt er unerreichbar (Review #6).
+export function ringOffStage(p: Vec, w: number, h: number, r: number): boolean {
+  return p.x < r || p.x > w - r || p.y < r || p.y > h - r * 1.6;
+}
+
 // Zählt ein Avatar als „im Ring“? Seine Mitte darf bis zu 0,6 Avatar-Radien über den Ring hinaus liegen – der Kreis
 // überlappt den Ring dann noch deutlich. Sonst schieben die Abstandsregeln (Namen neben- und übereinander) den
 // letzten nötigen Avatar knapp an den Rand, und der Ring füllt sich nie lange genug (Live-Test 1280×720).

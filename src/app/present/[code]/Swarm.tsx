@@ -11,7 +11,7 @@ import { supabase } from "@/lib/supabase";
 import type { Participant } from "@/lib/useSession";
 import { hash, ringColor } from "@/lib/avatar";
 import {
-  AUTONOMOUS_MS, HOLD_MS, acceptStick, avatarRadius, boidAlpha, clearance, currentTarget, escapeRect, isActive, lerpStick, inRing, mergeRects, pushFrom, ringNeeded, ringSpot, ringStep, separation, spawnPoint,
+  AUTONOMOUS_MS, HOLD_MS, acceptStick, avatarRadius, boidAlpha, clearance, currentTarget, escapeRect, isActive, lerpStick, inRing, mergeRects, pushFrom, ringNeeded, ringOffStage, ringSpot, ringStep, separation, spawnPoint,
   type Rect, type RingState, type StickMsg, type SwarmInput, type Vec,
 } from "@/lib/swarm";
 
@@ -194,7 +194,9 @@ export default function Swarm({ code, participants, preview, avoidSelector }: {
       // sonst spränge er weg, wenn die Gruppe ihn fast gefüllt hat (Review #6).
       const key = blocked.map((a) => `${Math.round(a.x / 8)},${Math.round(a.y / 8)},${Math.round(a.w / 8)},${Math.round(a.h / 8)}`).join("|");
       const cramped = ringClear < ringMargin;
-      if (blocked.length && (!ringPos || clearance(ringPos, blocked) < Math.min(ringMargin, ringClear) - 1 || (cramped && key !== blockedKey))) {
+      // Außerdem: Liegt die Mitte nach einer Größenänderung (Vollbild verlassen) außerhalb der erreichbaren Fläche, neu.
+      const offStage = !!ringPos && ringOffStage(ringPos, w, h, R);
+      if (blocked.length && (!ringPos || offStage || clearance(ringPos, blocked) < Math.min(ringMargin, ringClear) - 1 || (cramped && key !== blockedKey))) {
         placeRing(blocked, R);
       }
       blockedKey = key;
