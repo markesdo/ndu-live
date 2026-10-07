@@ -41,8 +41,19 @@ export function countLabel(n: number, total: number, participants: number): stri
 }
 
 // Handy, kleine Gruppe, eigene Antwort gesendet, aber noch nicht alle: Wartehinweis statt Ergebnis.
-// null heißt: Ergebnis zeigen (große Gruppe oder alle haben geantwortet).
-export function phoneWaiting(answered: number, participants: number): string | null {
-  if (!isSmall(participants) || allAnswered(answered, participants)) return null;
+// null heißt: Ergebnis zeigen (große Gruppe, alle haben geantwortet, oder die Leinwand hat aufgelöst).
+// `revealStep`: Schritt aus dem letzten Broadcast „reveal“ – zählt nur für den aktuellen Schritt.
+export function phoneWaiting(answered: number, participants: number, step: number, revealStep: number | null): string | null {
+  if (!isSmall(participants) || allAnswered(answered, participants) || revealStep === step) return null;
   return `Gesendet · warten auf die anderen (${answered} von ${participants})`;
+}
+
+// Leinwand → Handys: Broadcast „reveal“ auf dem Kanal session-<code>, solange die Umfrage aufgelöst ist.
+// Wiederholt, damit Nachzügler und verlorene Nachrichten aufholen. run = Leinwand-Sitzung (wie beim Token-Spiel).
+export const REVEAL_EVERY_MS = 3000;
+
+// Handy: Schritt aus einer reveal-Nachricht, null bei allem Kaputten.
+export function revealStepOf(payload: unknown): number | null {
+  const s = (payload as { step?: unknown } | null)?.step;
+  return typeof s === "number" && Number.isInteger(s) && s >= 0 ? s : null;
 }

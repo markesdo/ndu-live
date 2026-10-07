@@ -29,7 +29,7 @@ function buzz(pattern: number | number[]) {
 }
 
 export default function JoinClient({ code }: { code: string }) {
-  const { step, participants, answers, error, live, reconnecting, energyStage } = useSession(code);
+  const { step, participants, answers, error, live, reconnecting, energyStage, revealStep } = useSession(code);
   // Für die Token-Taste (eigener Schritt vor dem Finale): Sie sieht beim Weiterblättern sofort den neuen Schritt.
   const stepRef = useRef<number | null>(step);
   useEffect(() => { stepRef.current = step; }, [step]);
@@ -206,11 +206,12 @@ export default function JoinClient({ code }: { code: string }) {
   const current = STEPS[step] ?? STEPS[0];
   const myAnswer = me ? answers.find((a) => a.participant_id === me.id && a.step === step) : undefined;
   const mine = myAnswer?.value ?? local[step];
-  // Kleine Gruppe: eigenes Ergebnis erst, wenn alle geantwortet haben – sonst verrät das Handy die Auflösung.
+  // Kleine Gruppe: eigenes Ergebnis erst, wenn alle geantwortet haben oder die Leinwand aufgelöst hat –
+  // sonst verrät das Handy die Auflösung.
   // Einmal gezeigt, bleibt es (`shown`), auch wenn danach noch jemand beitritt. Gemerkt wird nur mit der
   // vom Server bestätigten Antwort und pro Person – nach einem Reset tritt man mit neuer id bei.
   const waitText = me && current.kind === "poll" && mine !== undefined
-    ? phoneWaiting(answeredCount(answers, participants.map((p) => p.id), step, me.id), participants.length)
+    ? phoneWaiting(answeredCount(answers, participants.map((p) => p.id), step, me.id), participants.length, step, revealStep)
     : null;
   const shownKey = me ? `${me.id}:${step}` : null;
   if (shownKey && current.kind === "poll" && myAnswer && !waitText && shown !== shownKey) setShown(shownKey);

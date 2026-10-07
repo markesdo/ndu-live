@@ -6,7 +6,8 @@ import { stripNames, type Spotlight, type Thema } from "@/lib/ai-shared";
 import { doneSpot, ideaTextForAi, requestSpot, type SpotQueue } from "@/lib/spot-queue";
 import { hash } from "@/lib/avatar";
 import { useFlash } from "@/lib/useFlash";
-import { answeredCount, isSmall, pollAdvance, revealed } from "@/lib/poll-small";
+import { REVEAL_EVERY_MS, answeredCount, isSmall, pollAdvance, revealed } from "@/lib/poll-small";
+import { supabase } from "@/lib/supabase";
 import type { Answer, Participant, Reaction } from "@/lib/useSession";
 import { TokensStage } from "./EnergyMeter";
 import Lobby from "./Lobby";
@@ -62,6 +63,20 @@ export default function Stage(props: Props) {
   // Auflösung einmal merken (Zustand aus dem Render anpassen, wie oben bei `sub`): sonst verdeckt
   // eine Person, die nach der Auflösung beitritt, alles wieder, und → löst erneut auf statt weiterzublättern.
   if (current.kind === "poll" && pollShown && !sub.reveal && isSmall(participants.length)) setSub({ ...sub, reveal: true });
+
+  // Auflösung an die Handys melden (früh per → oder weil alle geantwortet haben), alle 3 s erneut für
+  // Nachzügler und verlorene Nachrichten. Über den Session-Kanal, den useSession schon offen hat – nicht
+  // abbauen. run: eigene Kennung pro Leinwand-Sitzung, wie beim Token-Spiel.
+  const [run] = useState(() => typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`);
+  const announceReveal = !preview && current.kind === "poll" && sub.reveal;
+  useEffect(() => {
+    if (!announceReveal) return;
+    const session = supabase.channel(`session-${code}`);
+    const send = () => { session.send({ type: "broadcast", event: "reveal", payload: { step, run } }).catch(() => {}); };
+    send();
+    const beat = setInterval(send, REVEAL_EVERY_MS);
+    return () => clearInterval(beat);
+  }, [announceReveal, code, step, run]);
 
   // → und „Weiter“ gehen denselben Weg: Spotlight schließen, Umfrage auflösen, Pointe, Kurs-Hinweis, nächster Schritt.
   function advance() {

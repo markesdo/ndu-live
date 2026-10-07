@@ -131,3 +131,25 @@ test("Loader: falscher Code nur beim ersten Laden endgültig, danach wird erneut
   assert.equal(later.calls.timers.length, 1);
   assert.equal(later.calls.fails[0].firstLoad, false);
 });
+
+test("Loader: Beitritt in der Lücke vor SUBSCRIBED – erstes Laden schon fertig, SUBSCRIBED lädt erneut", async () => {
+  const { loader, calls, resolveNext } = harness();
+  loader.load();
+  await resolveNext(OK(["a"])); // Snapshot ohne „neu“; „neu“ tritt bei, bevor der Kanal hört – kein Realtime-Ereignis
+  loader.subscribed();
+  assert.equal(calls.fetch, 2);
+  await resolveNext(OK(["a", "neu"]));
+  assert.deepEqual(calls.applied.at(-1).data.participants.map((p) => p.id), ["a", "neu"]);
+});
+
+test("Loader: SUBSCRIBED während des ersten Ladens ergibt genau ein Laden danach, keine Schleife", async () => {
+  const { loader, calls, resolveNext } = harness();
+  loader.load();
+  loader.subscribed(); // Kanal steht, bevor das erste Laden zurück ist
+  assert.equal(calls.fetch, 1);
+  await resolveNext(OK(["a"]));
+  assert.equal(calls.fetch, 2);
+  await resolveNext(OK(["a", "neu"]));
+  assert.equal(calls.fetch, 2);
+  assert.deepEqual(calls.applied.at(-1).data.participants.map((p) => p.id), ["a", "neu"]);
+});
