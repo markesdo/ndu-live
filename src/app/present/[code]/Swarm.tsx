@@ -3,6 +3,8 @@
 // (geprüft in acceptStick) und rechnet daraus einen Schwarm (Reynolds-Boids + Steuerung). Die Avatare sind die
 // Namen der Lobby; ein pulsierender Ring wandert über die Bühne – sind genug Aktive drin, platzt er in ihren Farben.
 // Zeichnet auf ein Canvas hinter dem Lobby-Text; QR-Code, Zähler und Überschrift sind Sperrzonen.
+// Vertrauen: Aus Broadcasts wird nur die Richtung gelesen (geprüft in acceptStick, dort auch die bekannte Grenze
+// „fremden Avatar lenken“). Name und Emoji jedes Avatars stammen aus der Teilnehmer-Tabelle, nie aus einer Nachricht.
 import { useEffect, useRef } from "react";
 import { useReducedMotion } from "motion/react";
 import { supabase } from "@/lib/supabase";
@@ -28,7 +30,7 @@ function ensureChannel(code: string) {
   channels.add(code);
   supabase
     .channel(`swarm-${code}`)
-    .on("broadcast", { event: "stick" }, ({ payload }) => listener?.(payload as StickMsg))
+    .on("broadcast", { event: "stick" }, ({ payload }) => { if (payload && typeof payload === "object") listener?.(payload as StickMsg); })
     .subscribe();
 }
 

@@ -29,6 +29,9 @@ test("Leinwand: unbekannte Person und kaputte Zahlen werden verworfen", () => {
   assert.equal(acceptStick(m, { pid: 42, x: 1, y: 0 }, ids, 0), false);
   assert.equal(acceptStick(m, { pid: "a", x: "1", y: 0 }, ids, 0), false);
   assert.equal(acceptStick(m, { pid: "a", x: Number.NaN, y: 0 }, ids, 0), false);
+  assert.equal(acceptStick(m, null, ids, 0), false); // kaputter Broadcast darf die Leinwand nicht abstürzen lassen
+  assert.equal(acceptStick(m, "x", ids, 0), false);
+  assert.equal(acceptStick(m, { pid: "a", x: Infinity, y: 0 }, ids, 0), false);
   assert.equal(m.size, 0);
 });
 
@@ -37,7 +40,7 @@ test("Leinwand: Mindestabstand und Reihenfolge (seq) pro Person, Richtung gedeck
   assert.equal(acceptStick(m, { pid: "a", x: 5, y: 0, seq: 1 }, ids, 0), true);
   assert.deepEqual(m.get("a").target, { x: 1, y: 0 });
   assert.equal(acceptStick(m, { pid: "a", x: 0, y: 1, seq: 2 }, ids, MIN_GAP_MS - 1), false);
-  assert.equal(acceptStick(m, { pid: "a", x: 0, y: 1, seq: 1 }, ids, MIN_GAP_MS), false); // alt/doppelt
+  assert.equal(acceptStick(m, { pid: "a", x: 0, y: 1, seq: 1 }, ids, MIN_GAP_MS), false); // Doppel
   assert.equal(acceptStick(m, { pid: "a", x: 0, y: 1, seq: 2 }, ids, MIN_GAP_MS), true);
   assert.equal(acceptStick(m, { pid: "b", x: 0, y: 1, seq: 1 }, ids, MIN_GAP_MS), true); // andere Person: eigener Takt
 });
@@ -93,4 +96,21 @@ test("Neue Person kommt vom QR-Code her, neuer Ring nie über Text", () => {
     const s = ringSpot(1920, 1080, 150, avoid, rand);
     assert.ok(!avoid.some((a) => s.x > a.x - 90 && s.x < a.x + a.w + 90 && s.y > a.y - 90 && s.y < a.y + a.h + 90), `Ring bei ${s.x},${s.y}`);
   }
+});
+
+test("Leinwand: gefälschte riesige seq sperrt das echte Handy nicht aus", () => {
+  const m = new Map();
+  assert.equal(acceptStick(m, { pid: "a", x: 1, y: 0, seq: 1e15 }, ids, 0), true); // Fälschung
+  assert.equal(acceptStick(m, { pid: "a", x: 0, y: 1, seq: 7 }, ids, MIN_GAP_MS), true); // echtes Handy, kleine seq
+  assert.deepEqual(m.get("a").target, { x: 0, y: 1 });
+});
+
+test("Leinwand: riesige oder unendliche Zahlen werden gedeckelt oder verworfen, Zustand bleibt so groß wie die Lobby", () => {
+  const m = new Map();
+  assert.equal(acceptStick(m, { pid: "a", x: 1e300, y: -1e300, seq: 1 }, ids, 0), true);
+  const t = m.get("a").target;
+  assert.ok(Math.hypot(t.x, t.y) <= 1.01, `gedeckelt: ${t.x},${t.y}`); // Rundung auf 2 Stellen
+  assert.equal(acceptStick(m, { pid: "b", x: 0, y: 0, seq: Infinity }, ids, 0), true); // kaputte seq zählt als „keine“
+  for (let i = 0; i < 1000; i++) acceptStick(m, { pid: `fremd${i}`, x: 1, y: 0, seq: i }, ids, i * 1000);
+  assert.equal(m.size, 2);
 });

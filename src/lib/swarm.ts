@@ -36,14 +36,22 @@ export type SwarmInput = Map<string, Pilot>;
 
 // Leinwand: eine Nachricht prüfen und als Ziel-Richtung übernehmen. true = angenommen.
 // Unbekannte Person, alte/doppelte Nachricht (seq), zu kurzer Abstand oder kaputte Zahlen → verworfen.
+// Bekannte Grenze (wie beim Token-Zähler in energy.ts): Die Person-ID kommt vom Handy, und die IDs aller sehen alle.
+// Wer mit dem öffentlichen Schlüssel selbst Broadcasts schickt, kann einen fremden Avatar lenken – für ein Spiel in der
+// Lobby in Kauf genommen. Schaden kann es nicht: Nur bekannte IDs zählen (Zustand höchstens so groß wie die Lobby),
+// Richtung auf Länge 1 gedeckelt, eine Nachricht pro 200 ms und Person, und aus der Nachricht wird nur x/y gelesen –
+// Namen und Emojis auf der Leinwand kommen aus der Teilnehmer-Tabelle, nie aus einer Nachricht.
 export function acceptStick(input: SwarmInput, msg: StickMsg, knownIds: ReadonlySet<string>, now: number): boolean {
+  if (!msg || typeof msg !== "object") return false;
   if (typeof msg.pid !== "string" || !knownIds.has(msg.pid)) return false;
   if (typeof msg.x !== "number" || typeof msg.y !== "number" || !Number.isFinite(msg.x) || !Number.isFinite(msg.y)) return false;
   const seq = typeof msg.seq === "number" && Number.isFinite(msg.seq) ? msg.seq : null;
   const p = input.get(msg.pid);
   if (p) {
     if (now - p.last < MIN_GAP_MS) return false;
-    if (seq !== null && seq <= p.seq) return false;
+    // Nur exakte Doppel verwerfen, keine „größer als zuletzt“-Regel: Sonst könnte jemand mit einer riesigen seq
+    // im Namen einer anderen Person deren echte Nachrichten für immer aussperren. Es zählt einfach die neueste.
+    if (seq !== null && seq === p.seq) return false;
   }
   const t = quantise({ x: msg.x, y: msg.y });
   const pilot: Pilot = p ?? { target: { x: 0, y: 0 }, cur: { x: 0, y: 0 }, seq: -1, last: -Infinity, input: -Infinity };
