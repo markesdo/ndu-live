@@ -61,6 +61,18 @@ export const emptyEnergy = (): EnergyState => ({ total: 0, people: new Map() });
 // Bekannte Grenze: Die Person-ID kommt vom Handy. Wer per Skript fremde IDs schickt, umgeht den Anteil-Deckel –
 // für ein Spiel in der Lobby in Kauf genommen (es geht um nichts, und der Deckel pro Nachricht bleibt).
 // minStage: Stufen gehen auf der Leinwand nie zurück, auch wenn später jemand dazukommt und die Schwellen wachsen.
+// Wie viele Personen tragen in dieser Stufe schon bei (die sendende mitgezählt)?
+function activeInStage(state: EnergyState, stage: number, pid: string): number {
+  let n = 0;
+  for (const [id, p] of state.people) if (id === pid || (p.stage === stage && p.inStage > 0)) n++;
+  return state.people.has(pid) ? n : n + 1;
+}
+
+// Höchstanteil pro Person: mindestens SHARE_CAP, bei wenigen Aktiven so viel, dass sie die Stufe gemeinsam schaffen.
+export function shareCap(active: number): number {
+  return Math.min(1, Math.max(SHARE_CAP, 1 / Math.max(1, active) + 0.1));
+}
+
 export function accept(state: EnergyState, msg: Msg, knownIds: ReadonlySet<string>, participants: number, now: number, minStage = 0): number {
   if (typeof msg.pid !== "string" || !knownIds.has(msg.pid)) return 0;
   const raw = typeof msg.n === "number" ? msg.n : Number.NaN;
@@ -75,12 +87,14 @@ export function accept(state: EnergyState, msg: Msg, knownIds: ReadonlySet<strin
   if (now - person.last < MIN_GAP_MS) return 0;
   if (person.stage !== stage) { person.stage = stage; person.inStage = 0; }
 
-  // Anteil pro Person und Stufe begrenzen – außer bei ganz kleinen Runden (Probe allein oder zu zweit).
-  if (participants > 2) {
-    const len = targets[stage] - (stage === 0 ? 0 : targets[stage - 1]);
-    const room = Math.max(0, Math.floor(len * SHARE_CAP) - person.inStage);
-    n = Math.min(n, room);
-  }
+  // Anteil pro Person und Stufe begrenzen. Maßstab sind die Personen, die in dieser Stufe wirklich tippen
+  // (nicht die Beigetretenen): Tippen nur zwei, darf jede 60 % – sonst bliebe die Stufe bei 80 % hängen.
+  // Probe allein (≤ 2 Beigetretene): eine Person darf alles.
+  const len = targets[stage] - (stage === 0 ? 0 : targets[stage - 1]);
+  // Mindestens zwei Aktive annehmen, sobald mehr als zwei beigetreten sind – eine Person allein schafft nie eine Stufe.
+  const active = Math.max(activeInStage(state, stage, msg.pid), participants > 2 ? 2 : 1);
+  const cap = shareCap(active);
+  if (cap < 1) n = Math.min(n, Math.max(0, Math.floor(len * cap) - person.inStage));
   person.last = now;
   state.people.set(msg.pid, person);
   if (n <= 0) return 0;

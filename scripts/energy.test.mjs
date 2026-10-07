@@ -61,11 +61,11 @@ test("Leinwand: zweite Nachricht derselben Person zu früh wird verworfen", () =
   assert.equal(s.total, 30);
 });
 
-test("Leinwand: eine Person schafft keine Stufe allein (40 %)", () => {
-  const s = emptyEnergy(); // 5 Leute → Stufe 1 = 300 Tokens, Anteil höchstens 120
+test("Leinwand: eine Person schafft keine Stufe allein (höchstens 60 %, solange sie allein tippt)", () => {
+  const s = emptyEnergy(); // 5 Leute → Stufe 1 = 300 Tokens; allein tippend gilt der Deckel für zwei Aktive: 180
   let t = 0;
   for (let i = 0; i < 50; i++, t += MIN_GAP_MS) accept(s, { pid: "a", n: 24 }, ids, 5, t);
-  assert.equal(s.total, 120);
+  assert.equal(s.total, 180);
   assert.equal(stageOf(s.total, stageTargets(5)), 0);
 });
 
@@ -123,4 +123,16 @@ test("Leinwand: zwei Bündel einer Person dicht hintereinander (Netz schwankt) z
   assert.equal(accept(s, { pid: "a", n: 20 }, ids, 5, 1900), 20);
   assert.equal(accept(s, { pid: "a", n: 20 }, ids, 5, 2100 + MIN_GAP_MS - 200 + 100), 20);
   assert.ok(MIN_GAP_MS <= 500);
+});
+
+test("Leinwand: zwei Tippende schaffen eine Stufe, auch wenn mehr beigetreten sind (Review #5)", () => {
+  const s = emptyEnergy();
+  const ids = new Set(["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"]);
+  const [ziel] = stageTargets(10);
+  let t = 0;
+  for (let i = 0; i < 60; i++, t += MIN_GAP_MS) {
+    accept(s, { pid: "a", n: 24 }, ids, 10, t);
+    accept(s, { pid: "b", n: 24 }, ids, 10, t);
+  }
+  assert.ok(s.total >= ziel, `Stufe 1 erreicht: ${s.total} >= ${ziel}`);
 });
