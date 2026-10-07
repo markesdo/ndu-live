@@ -12,18 +12,18 @@ export const STEPS: Step[] = [
   { kind: "lobby", title: "Scannen & dabei sein" },
   {
     kind: "poll",
-    title: "Wie viel hast du schon programmiert?",
-    options: ["Noch nie", "Ein bisschen HTML/Excel-Formeln", "Mal einen Kurs gemacht", "Ich kann's eigentlich"],
+    title: "Wie viel Code hast du schon geschrieben?",
+    options: ["Noch keine Zeile", "Ein bisschen HTML oder Excel-Formeln", "Ein Kurs oder ein paar Tutorials", "Ich programmiere schon"],
   },
   {
     kind: "poll",
     title: "Wovor hast du am meisten Respekt?",
-    options: ["Das Terminal", "Fehlermeldungen", "Dass ich nichts verstehe", "Gar nichts – los geht's"],
+    options: ["Das Terminal", "Fehlermeldungen", "Dass ich etwas kaputt mache", "Gar nichts – los geht's"],
     punchline: "Alle drei kommen heute vor. Alle drei sind am Ende von Tag 1 kleiner.",
   },
   {
     kind: "text",
-    title: "Was würdest du bauen, wenn du es könntest?",
+    title: "Welche App würdest du gern bauen?",
     placeholder: "Eine App, die …",
     after: "Gespeichert. Am Tag 2 holst du dir deine Idee hier wieder ab.",
   },
