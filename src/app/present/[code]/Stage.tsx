@@ -6,7 +6,7 @@ import { stripNames, type Spotlight, type Thema } from "@/lib/ai-shared";
 import { doneSpot, ideaTextForAi, requestSpot, type SpotQueue } from "@/lib/spot-queue";
 import { hash } from "@/lib/avatar";
 import { useFlash } from "@/lib/useFlash";
-import { answeredCount, pollAdvance, revealed } from "@/lib/poll-small";
+import { answeredCount, isSmall, pollAdvance, revealed } from "@/lib/poll-small";
 import type { Answer, Participant, Reaction } from "@/lib/useSession";
 import { TokensStage } from "./EnergyMeter";
 import Lobby from "./Lobby";
@@ -31,7 +31,8 @@ type Props = {
 
 // Zwischenzustände nur auf der Leinwand (Auflösung, Pointe, Spotlight, Themen, Kurs-Hinweis). Sie gehören zu
 // einem Schritt und verfallen beim Weiterblättern – die Handys sehen davon nichts.
-// `reveal`: kleine Umfrage früher aufgelöst, bevor alle geantwortet haben (src/lib/poll-small.ts).
+// `reveal`: kleine Umfrage aufgelöst – früh per →, oder gemerkt, sobald alle geantwortet haben
+// (src/lib/poll-small.ts). Wer danach dazukommt, verdeckt die Auflösung nicht wieder.
 type Sub = { step: number; reveal: boolean; punch: boolean; spot: string | null; hook: boolean; themen: Thema[] | null };
 const fresh = (step: number): Sub => ({ step, reveal: false, punch: false, spot: null, hook: false, themen: null });
 
@@ -58,6 +59,9 @@ export default function Stage(props: Props) {
   const names = participants.map((p) => p.name);
   const answered = answeredCount(answers, participants.map((p) => p.id), step);
   const pollShown = current.kind !== "poll" || revealed(answered, participants.length, sub.reveal);
+  // Auflösung einmal merken (Zustand aus dem Render anpassen, wie oben bei `sub`): sonst verdeckt
+  // eine Person, die nach der Auflösung beitritt, alles wieder, und → löst erneut auf statt weiterzublättern.
+  if (current.kind === "poll" && pollShown && !sub.reveal && isSmall(participants.length)) setSub({ ...sub, reveal: true });
 
   // → und „Weiter“ gehen denselben Weg: Spotlight schließen, Umfrage auflösen, Pointe, Kurs-Hinweis, nächster Schritt.
   function advance() {
