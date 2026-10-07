@@ -16,19 +16,9 @@ export function useEnergy(code: string, participants: Participant[], preview: bo
   const reached = useRef(0); // höchste erreichte Stufe – geht nie zurück
   const [total, setTotal] = useState(0);
   const [stage, setStage] = useState(0);
-  const [gen, setGen] = useState(0); // neuer Durchlauf nach einem Reset
   useEffect(() => {
     known.current = new Set(participants.map((p) => p.id));
     count.current = participants.length;
-    // Reset in der Lobby (alle Teilnehmenden gelöscht, Schritt bleibt 0): Spiel und Durchlauf neu beginnen,
-    // sonst bliebe die Leinwand auf „Deployed“ und neue Handys bekämen eine gesperrte Taste.
-    if (participants.length === 0 && (state.current.total > 0 || reached.current > 0)) {
-      state.current = emptyEnergy();
-      reached.current = 0;
-      setTotal(0);
-      setStage(0);
-      setGen((g) => g + 1);
-    }
   }, [participants]);
 
   useEffect(() => {
@@ -68,13 +58,29 @@ export function useEnergy(code: string, participants: Participant[], preview: bo
     const onStage = setInterval(() => { if (reached.current !== lastSent) announce(); }, 250);
     announce();
     return () => { clearInterval(render); clearInterval(beat); clearInterval(onStage); supabase.removeChannel(channel); };
-  }, [code, preview, gen]);
+  }, [code, preview]);
 
   return { total, stage };
 }
 
-// Der Zähler selbst läuft in der Lobby (useEnergy), damit sie ihre Überschrift kleiner machen kann, sobald er erscheint.
-export default function EnergyMeter({ participants, total, stage }: { participants: Participant[]; total: number; stage: number }) {
+// Eigener Schritt vor dem Finale: Überschrift, Hinweis und der Zähler groß über die ganze Bühne. Der Zustand lebt
+// in diesem Schritt – beim Weiterblättern (auch Reset → Schritt 0) wird er abgebaut und beim nächsten Besuch neu begonnen.
+export function TokensStage({ code, title, hint, participants, preview }: {
+  code: string; title: string; hint: string; participants: Participant[]; preview: boolean;
+}) {
+  const { total, stage } = useEnergy(code, participants, preview);
+  return (
+    <div>
+      <h1 className={`mb-3 ${T.h1}`}>{title}</h1>
+      <p className={`${T.option} text-muted`}>{hint}</p>
+      <EnergyMeter participants={participants} total={total} stage={stage} big />
+    </div>
+  );
+}
+
+export default function EnergyMeter({ participants, total, stage, big = false }: {
+  participants: Participant[]; total: number; stage: number; big?: boolean;
+}) {
   const reduce = useReducedMotion();
   const n = participants.length;
   const targets = stageTargets(n);
@@ -82,11 +88,11 @@ export default function EnergyMeter({ participants, total, stage }: { participan
   const words = promptWords(n);
   const shown = stage > 0 ? words.length : wordsFor(total, targets, words.length);
 
-  if (total === 0) return null;
+  if (total === 0 && !big) return null;
   return (
     <motion.div initial={reduce ? { opacity: 0 } : { opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={ARRIVE}
-      className="mt-[3vh] max-w-[60vw]">
-      <p className="font-mono text-[clamp(18px,min(2.2vw,3.6vh),40px)] leading-snug">
+      className={big ? "mt-[5vh] max-w-[86vw]" : "mt-[3vh] max-w-[60vw]"}>
+      <p className={`font-mono leading-snug ${big ? "min-h-[3.9em] text-[clamp(22px,min(3vw,5vh),60px)]" : "text-[clamp(18px,min(2.2vw,3.6vh),40px)]"}`}>
         <span className="text-accent">› </span>
         {reduce
           ? words.slice(0, shown).join(" ")
@@ -95,8 +101,8 @@ export default function EnergyMeter({ participants, total, stage }: { participan
           ))}
         {!done && <span className="caret ml-1 inline-block h-[0.9em] w-[0.5em] translate-y-[0.1em] bg-accent" aria-hidden />}
       </p>
-      <div className="mt-4 flex items-center gap-4">
-        <div className="h-[6px] flex-1 overflow-hidden rounded-full bg-card-2" aria-hidden>
+      <div className={`flex items-center gap-4 ${big ? "mt-[4vh]" : "mt-4"}`}>
+        <div className={`${big ? "h-[clamp(8px,1.2vh,14px)]" : "h-[6px]"} flex-1 overflow-hidden rounded-full bg-card-2`} aria-hidden>
           <div className={`h-full origin-left rounded-full transition-transform duration-300 ${done ? "bg-ok" : stage === 1 ? "bg-accent-2" : stage === 2 ? "bg-blue" : "bg-accent"}`}
             style={{ transform: `scaleX(${stageProgress(total, targets, stage)})` }} />
         </div>

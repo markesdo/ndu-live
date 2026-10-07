@@ -19,11 +19,11 @@ function buzz(pattern: number | number[]) {
 const LABEL = ["Tippen = Token", "Agent arbeitet …", "Deployen …", "✓ Deployed"];
 const BORDER = ["border-border", "border-accent-2", "border-blue", "border-ok"];
 
-export default function TokenPad({ code, pid, stage, stepRef, lobbyStep }: {
+export default function TokenPad({ code, pid, stage, stepRef, padStep }: {
   code: string; pid: string; stage: number | null;
   // Schritt der Session als Ref: Die Taste lebt beim Weiterblättern noch kurz in der Ausblende-Animation –
   // über die Ref merkt sie sofort, dass sie nichts mehr senden darf.
-  stepRef: RefObject<number | null>; lobbyStep: number;
+  stepRef: RefObject<number | null>; padStep: number;
 }) {
   const reduce = useReducedMotion();
   const [mine, setMine] = useState(0);
@@ -50,7 +50,7 @@ export default function TokenPad({ code, pid, stage, stepRef, lobbyStep }: {
     let stopped = false;
     const flush = async () => {
       if (stopped || sending.current) return;
-      if (stepRef.current !== lobbyStep || doneRef.current) { pending.current = 0; return; }
+      if (stepRef.current !== padStep || doneRef.current) { pending.current = 0; return; }
       if (typeof navigator !== "undefined" && navigator.onLine === false) { pending.current = batchSize(pending.current); return; }
       const n = batchSize(pending.current);
       if (n === 0) return;
@@ -73,10 +73,10 @@ export default function TokenPad({ code, pid, stage, stepRef, lobbyStep }: {
       pending.current = 0; // nie beim Abbauen nachsenden
       supabase.removeChannel(channel);
     };
-  }, [code, pid, stepRef, lobbyStep]);
+  }, [code, pid, stepRef, padStep]);
 
   function tap() {
-    if (done || stepRef.current !== lobbyStep) return;
+    if (done || stepRef.current !== padStep) return;
     pending.current += 1;
     tapCount.current += 1;
     setMine((m) => m + 1);
@@ -90,7 +90,7 @@ export default function TokenPad({ code, pid, stage, stepRef, lobbyStep }: {
 
   const s = stage === null ? 0 : Math.min(stage, 3);
   return (
-    <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ ...SPRING, delay: 1.5 }} className="mt-8">
+    <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ ...SPRING, delay: 0.15 }} className="mt-4">
       <p className="mb-3 text-[15px] leading-snug text-muted">
         Der Raum schreibt gerade seinen ersten Prompt – jeder Tipp ist ein Token. Schau auf die Leinwand.
       </p>

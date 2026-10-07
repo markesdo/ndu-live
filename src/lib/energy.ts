@@ -61,7 +61,7 @@ export const emptyEnergy = (): EnergyState => ({ total: 0, people: new Map(), st
 // Leinwand: eine Nachricht prüfen und zählen. Ändert den Zustand an Ort und Stelle (wird bis zu 12×/s
 // aufgerufen) und gibt zurück, wie viele Tokens gezählt wurden. Die Leinwand ist der einzige vertrauenswürdige Ort.
 // Bekannte Grenze: Die Person-ID kommt vom Handy. Wer per Skript fremde IDs schickt, umgeht den Anteil-Deckel –
-// für ein Spiel in der Lobby in Kauf genommen (es geht um nichts, und der Deckel pro Nachricht bleibt).
+// für ein Mini-Spiel in Kauf genommen (es geht um nichts, und der Deckel pro Nachricht bleibt).
 // minStage: Stufen gehen auf der Leinwand nie zurück, auch wenn später jemand dazukommt und die Schwellen wachsen.
 // Wie viele Personen tragen in dieser Stufe schon bei (die sendende mitgezählt)?
 function activeInStage(state: EnergyState, stage: number, pid: string): number {

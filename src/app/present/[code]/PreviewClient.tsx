@@ -33,19 +33,24 @@ const MORE_IDEAS = [
   "Bibliotheks-Lärmampel", "Pflanzen-Gießdienst im Wohnheim", "Fundbüro am Campus", "Druckerstatus in Echtzeit",
 ];
 
+// Vorschau-Namen → Schritt, nach Art statt Nummer (die Reihenfolge in STEPS darf sich ändern).
+const idx = (kind: string, nth = 0) => STEPS.map((s, i) => (s.kind === kind ? i : -1)).filter((i) => i >= 0)[nth] ?? 0;
+const KINDS: Record<string, number> = {
+  lobby: idx("lobby"), poll: idx("poll"), poll2: idx("poll", 1), text: idx("text"), themen: idx("text"), tokens: idx("tokens"), finale: idx("finale"),
+};
+
 function answersFor(many = false): Answer[] {
   const out: Answer[] = [];
   const addPoll = (step: number, counts: number[]) => {
     let p = 0;
     counts.forEach((c, oi) => { for (let k = 0; k < c; k++, p++) out.push({ id: `a${step}-${p}`, participant_id: PEOPLE[p].id, step, value: (STEPS[step] as { options: string[] }).options[oi] }); });
   };
-  addPoll(1, POLL1);
-  addPoll(2, POLL2);
-  (many ? [...IDEAS, ...MORE_IDEAS] : IDEAS).forEach((value, i) => out.push({ id: `idea${i}`, participant_id: PEOPLE[(i * 2) % PEOPLE.length].id, step: 3, value }));
+  addPoll(KINDS.poll, POLL1);
+  addPoll(KINDS.poll2, POLL2);
+  (many ? [...IDEAS, ...MORE_IDEAS] : IDEAS).forEach((value, i) => out.push({ id: `idea${i}`, participant_id: PEOPLE[(i * 2) % PEOPLE.length].id, step: KINDS.text, value }));
   return out;
 }
 
-const KINDS: Record<string, number> = { lobby: 0, poll: 1, poll2: 2, text: 3, themen: 3, finale: 4 };
 
 export default function PreviewClient({ code, vorschau }: { code: string; vorschau: string }) {
   const [step, setStep] = useState(KINDS[vorschau] ?? 0);

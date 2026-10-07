@@ -1,7 +1,7 @@
 import PresentClient from "./PresentClient";
 import PreviewClient from "./PreviewClient";
 
-// ?vorschau=lobby|poll|poll2|text|themen|finale zeigt einen Schritt mit erfundenen Daten – nur in der Entwicklung
+// ?vorschau=lobby|poll|poll2|text|themen|tokens|finale zeigt einen Schritt mit erfundenen Daten – nur in der Entwicklung
 // (Allowlist development/test; alles andere, auch ein fehlender Wert, bekommt die echte Leinwand).
 const PREVIEW_ALLOWED = process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test";
 

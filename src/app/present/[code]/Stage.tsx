@@ -7,6 +7,7 @@ import { doneSpot, ideaTextForAi, requestSpot, type SpotQueue } from "@/lib/spot
 import { hash } from "@/lib/avatar";
 import { useFlash } from "@/lib/useFlash";
 import type { Answer, Participant, Reaction } from "@/lib/useSession";
+import { TokensStage } from "./EnergyMeter";
 import Lobby from "./Lobby";
 import Poll, { Pool } from "./Poll";
 import { IdeaWall, SpotlightView, type SpotState } from "./Ideas";
@@ -23,7 +24,7 @@ type Props = {
   live: boolean; reconnecting: boolean;
   go: (next: number) => void; onReset: () => void; onUnlock?: () => void;
   dialogOpen: boolean; ai: StageAi; children?: React.ReactNode;
-  preview?: boolean; // nur Vorschau: Lobby-Spiel mit erfundenen Tipps, ohne Netz
+  preview?: boolean; // nur Vorschau: Token-Spiel mit erfundenen Tipps, ohne Netz
 };
 
 // Zwischenzustände nur auf der Leinwand (Pointe, Spotlight, Themen, Kurs-Hinweis). Sie gehören zu
@@ -163,7 +164,8 @@ export default function Stage(props: Props) {
             <AnimatePresence mode="wait">
               <motion.div key={step} initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -30 }}
                 transition={{ duration: 0.35, ease: [0.2, 0, 0, 1] }} className="w-full">
-                {current.kind === "lobby" && <Lobby code={code} participants={participants} joinUrl={joinUrl} showQr={!!origin} preview={preview} />}
+                {current.kind === "lobby" && <Lobby participants={participants} joinUrl={joinUrl} showQr={!!origin} />}
+                {current.kind === "tokens" && <TokensStage code={code} title={current.title} hint={current.hint} participants={participants} preview={!!preview} />}
                 {current.kind === "poll" && (
                   <Poll step={step} title={current.title} options={current.options} participants={participants} answers={answers}
                     punchline={current.punchline} showPunchline={sub.punch} />

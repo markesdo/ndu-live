@@ -4,16 +4,11 @@ import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { QRCodeSVG } from "qrcode.react";
 import type { Participant } from "@/lib/useSession";
 import { ARRIVE, ARRIVE_FROM, ARRIVE_TO, Glyph, T } from "./parts";
-import EnergyMeter, { useEnergy } from "./EnergyMeter";
 
 // Lobby: Zähler als Held, Wand aller Namen, die neueste Person kurz groß („Hallo, Lea“).
-export default function Lobby({ code, participants, joinUrl, showQr, preview = false }: {
-  code: string; participants: Participant[]; joinUrl: string; showQr: boolean; preview?: boolean;
-}) {
+export default function Lobby({ participants, joinUrl, showQr }: { participants: Participant[]; joinUrl: string; showQr: boolean }) {
   const newest = useArrivals(participants);
-  const { total: energy, stage: energyStage } = useEnergy(code, participants, preview);
-  // Sobald der Raum tippt, rückt die Überschrift auf eine Zeile – sonst passt der Zähler bei 1280×720 nicht mehr.
-  const many = participants.length > 8 || energy > 0;
+  const many = participants.length > 8;
   const dense = participants.length > 16;
   const url = joinUrl.replace(/^https?:\/\//, "");
   return (
@@ -53,8 +48,6 @@ export default function Lobby({ code, participants, joinUrl, showQr, preview = f
             ))}
           </div>
         )}
-        {/* Gemeinsamer Token-Zähler: erscheint erst mit dem ersten Tipp, links unter den Namen – nie beim QR-Code. */}
-        <EnergyMeter participants={participants} total={energy} stage={energyStage} />
       </div>
 
       {showQr && (

@@ -20,7 +20,7 @@ export function useSession(code: string) {
   const [channelDown, setChannelDown] = useState(false);
   // Ein Nachladen (nach Standby/Wiederverbinden) ist gescheitert – der alte Stand bleibt stehen.
   const [refreshFailed, setRefreshFailed] = useState(false);
-  // Stufe des Lobby-Spiels („Der Raum schreibt den Prompt“) – nur per Broadcast von der Leinwand, nicht gespeichert.
+  // Stufe des Token-Spiels („Der Raum schreibt den Prompt“) – nur per Broadcast von der Leinwand, nicht gespeichert.
   const [energyStage, setEnergyStage] = useState<PhoneStage | null>(null);
 
   useEffect(() => {
@@ -64,7 +64,12 @@ export function useSession(code: string) {
     const channel = supabase
       .channel(`session-${code}`)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "sessions", filter: `code=eq.${code}` },
-        (payload) => setStep((payload.new as { active_step: number }).active_step))
+        (payload) => {
+          const next = (payload.new as { active_step: number }).active_step;
+          // Neuer Schritt = neues Token-Spiel (die Leinwand baut es beim Blättern ab und neu auf, mit neuem Durchlauf).
+          // Den alten Stand vergessen, sonst nähme das Handy den neuen Durchlauf erst nach RUN_SWITCH_MS an.
+          setStep((prev) => { if (prev !== next) setEnergyStage(null); return next; });
+        })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "participants", filter: `session_code=eq.${code}` },
         (payload) => {
           const p = payload.new as Participant;
