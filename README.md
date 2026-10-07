@@ -7,9 +7,9 @@ QR-Code an der Leinwand, Studierende sind am Handy in 20 Sekunden drin, Ergebnis
 ## Ablauf der Session (6 Schritte, mit ← → oder den Buttons unten)
 
 1. **Lobby** – QR-Code, Teilnehmende ploppen rein; Spiel „Schwarm“: jede Person lenkt ihren Avatar mit dem Daumen, gemeinsam in den Ring (Broadcast nur an die Leinwand, höchstens 2 Nachrichten/s pro Handy)
-2. **Umfrage** – „Wie viel hast du schon programmiert?“
+2. **Umfrage** – „Wie viel Code hast du schon geschrieben?“
 3. **Umfrage** – „Wovor hast du am meisten Respekt?“
-4. **Freitext** – „Was würdest du bauen, wenn du es könntest?“ (Karten fliegen rein – gleichzeitig Ideensammlung für die Hausaufgabe!)
+4. **Freitext** – „Welche App würdest du gern bauen?“ (Karten fliegen rein – gleichzeitig Ideensammlung für die Hausaufgabe!)
 5. **Token-Spiel** – „Jetzt baut der Raum.“ Jeder Tipp am Handy ist ein Token; die Leinwand schreibt den Prompt und füllt drei Stufen bis `✓ Deployed`
 6. **Finale** – „60 Minuten, keine Zeile Code“ + Emoji-Reaktionen steigen auf
 
