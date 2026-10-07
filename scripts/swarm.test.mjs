@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  ACTIVE_MS, HEARTBEAT_MS, HOLD_MS, MIN_GAP_MS, SEND_MS, STALE_MS, acceptStick, currentTarget, boidAlpha, isActive, lerpStick, quantise, ringNeeded, ringSpot, ringStep, shouldSend, spawnPoint,
+  ACTIVE_MS, HEARTBEAT_MS, HOLD_MS, MIN_GAP_MS, SEND_MS, STALE_MS, acceptStick, currentTarget, boidAlpha, isActive, lerpStick, quantise, ringNeeded, ringSpot, ringStep, shouldSend, spawnPoint, avatarRadius, escapeRect, labelGap,
 } from "../src/lib/swarm.ts";
 
 const ids = new Set(["a", "b"]);
@@ -164,4 +164,26 @@ test("Leinwand: Handy-Uhr weit vor der Leinwand – Reihenfolge gilt trotzdem (R
   const handy = Date.now() + 60_000; // Handy-Uhr eine Minute vor
   acceptStick(m, { pid: "a", x: 0, y: 0, seq: handy + 600 }, ids, 0); // Loslassen zuerst
   assert.equal(acceptStick(m, { pid: "a", x: 1, y: 0, seq: handy }, ids, 300), false); // verspätete Richtung verworfen
+});
+
+test("Wenige Leute (Kurs 2026: 3 + 1): größere Avatare, Ring braucht mindestens zwei", () => {
+  assert.equal(avatarRadius(4, 1), 48);
+  assert.equal(avatarRadius(5, 1), 48);
+  assert.equal(avatarRadius(6, 1), 38);
+  assert.equal(ringNeeded(3), 2);
+  assert.equal(ringNeeded(4), 3);
+});
+
+test("Namen überlappen nicht: Abstand in x mindestens die halbe Summe der Namensbreiten", () => {
+  assert.equal(labelGap(160, 140, 48, 1), 166); // (160+140)/2 + 16
+  assert.equal(labelGap(20, 20, 48, 1), 48 * 2.6); // kurze Namen: Kreisabstand reicht
+});
+
+test("Sperrzone hart: Avatar samt Namen wird aus Text und QR-Code geschoben, nie aus der Bühne", () => {
+  const a = { x: 100, y: 100, w: 400, h: 100 };
+  assert.deepEqual(escapeRect({ x: 50, y: 300 }, a, 40, 70), { x: 50, y: 300 }); // frei
+  assert.deepEqual(escapeRect({ x: 120, y: 150 }, a, 40, 70), { x: 60, y: 150 }); // links raus
+  // Kopfzeile ganz oben: Ausgang nach oben läge außerhalb der Bühne → nach unten
+  const kopf = { x: 0, y: 0, w: 1920, h: 60 };
+  assert.deepEqual(escapeRect({ x: 900, y: 20 }, kopf, 40, 70, { w: 1920, h: 1080 }), { x: 900, y: 100 });
 });

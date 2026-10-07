@@ -95,11 +95,39 @@ export function lerpStick(cur: Vec, target: Vec, dtMs: number, tauMs = STICK_TAU
 // Wer zählt als aktiv? Eingabe innerhalb von ACTIVE_MS.
 export const isActive = (p: Pilot | undefined, now: number) => !!p && now - p.input < ACTIVE_MS;
 
-// Wie viele müssen im Ring sein? 60 % der Aktiven, aufgerundet – bei bis zu drei Aktiven also zwei (eine allein: eine).
-// Ohne Aktive (Schwarm fliegt allein) zählen alle.
+// Wie viele müssen im Ring sein? 60 % der Aktiven, aufgerundet, aber mindestens zwei – es soll ein Zusammenfinden
+// sein (3 Aktive → 2, 4 → 3). Allein (Probe) reicht eine Person. Ohne Aktive (Schwarm fliegt allein) zählen alle.
 export function ringNeeded(active: number): number {
   if (active <= 0) return 0;
-  return Math.ceil(active * 0.6);
+  if (active === 1) return 1;
+  return Math.max(2, Math.ceil(active * 0.6));
+}
+
+// Avatar-Radius in px: Bei wenigen Leuten (Kurs 2026: 3 Studierende + 1 Dozent) größer, damit die Bühne nicht leer wirkt.
+export function avatarRadius(count: number, unit: number): number {
+  return (count <= 5 ? 48 : 38) * unit;
+}
+
+// Mindestabstand zweier Mittelpunkte in x, damit die Namen darunter nicht überlappen – nur wenn sie etwa auf einer
+// Höhe sind (|dy| kleiner als zwei Radien plus Namenszeile). labelW in px.
+export function labelGap(labelA: number, labelB: number, r: number, unit: number): number {
+  return Math.max(r * 2.6, (labelA + labelB) / 2 + 16 * unit);
+}
+
+// Harte Sperrzone: Liegt ein Avatar (Kreis mit Radius r, Name darunter bis r + below) in einem Rechteck, wird er zur
+// nächsten Kante hinausgeschoben. Gibt die neue Position zurück (unverändert, wenn frei). Für Text und QR-Code –
+// der weiche Schub allein reicht bei schnellem Lenken nicht.
+export function escapeRect(p: Vec, a: Rect, r: number, below: number, bounds?: { w: number; h: number }): Vec {
+  const left = a.x - r, right = a.x + a.w + r, top = a.y - below, bottom = a.y + a.h + r;
+  if (p.x <= left || p.x >= right || p.y <= top || p.y >= bottom) return p;
+  // Ausgänge nach Nähe; einer, der aus der Bühne hinausführt (z. B. über der Kopfzeile), zählt nicht.
+  const exits: [number, Vec][] = [
+    [p.x - left, { x: left, y: p.y }], [right - p.x, { x: right, y: p.y }],
+    [p.y - top, { x: p.x, y: top }], [bottom - p.y, { x: p.x, y: bottom }],
+  ];
+  const ok = (q: Vec) => !bounds || (q.x >= r && q.x <= bounds.w - r && q.y >= r && q.y <= bounds.h - below);
+  exits.sort((m, n) => m[0] - n[0]);
+  return (exits.find(([, q]) => ok(q)) ?? exits[0])[1];
 }
 
 // Deckkraft eines Avatars: voll, solange aktiv oder noch nie gelenkt; danach gedimmt.

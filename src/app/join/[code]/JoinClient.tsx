@@ -492,7 +492,7 @@ function SocialProof({ others, total }: { others: Participant[]; total: number }
             style={{ boxShadow: `inset 0 0 0 2px ${ringColor(p.name)}` }}>{p.emoji}</motion.span>
         ))}
       </span>
-      <span>{total === 1 ? "1 ist schon da" : `${total} sind schon da`}</span>
+      <span>{total === 1 ? "Eine Person ist schon da" : `${total} sind schon da`}</span>
     </div>
   );
 }

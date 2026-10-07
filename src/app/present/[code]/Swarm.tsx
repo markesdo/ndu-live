@@ -11,11 +11,11 @@ import { supabase } from "@/lib/supabase";
 import type { Participant } from "@/lib/useSession";
 import { hash, ringColor } from "@/lib/avatar";
 import {
-  AUTONOMOUS_MS, HOLD_MS, acceptStick, boidAlpha, currentTarget, isActive, lerpStick, pushFrom, ringBlocked, ringNeeded, ringSpot, ringStep, spawnPoint,
+  AUTONOMOUS_MS, HOLD_MS, acceptStick, avatarRadius, boidAlpha, currentTarget, escapeRect, isActive, labelGap, lerpStick, pushFrom, ringBlocked, ringNeeded, ringSpot, ringStep, spawnPoint,
   type Rect, type RingState, type StickMsg, type SwarmInput, type Vec,
 } from "@/lib/swarm";
 
-type Boid = { id: string; name: string; emoji: string; color: string; x: number; y: number; vx: number; vy: number; trail: Vec[]; wander: number; sprite: HTMLCanvasElement | null };
+type Boid = { id: string; name: string; emoji: string; color: string; x: number; y: number; vx: number; vy: number; trail: Vec[]; wander: number; sprite: HTMLCanvasElement | null; spriteR: number; labelW: number };
 type Particle = { x: number; y: number; vx: number; vy: number; life: number; color: string };
 
 const MAX_PARTICLES = 80;
@@ -107,10 +107,11 @@ export default function Swarm({ code, participants, preview, avoidSelector }: {
     ro.observe(cv);
     const remeasure = setInterval(measure, 1000);
 
-    const radius = () => 38 * unit; // Avatar ≈ 76 px bei 1080p – wenige Leute, große Avatare
+    // Avatar ≈ 96 px bei 1080p für bis zu 5 Leute (Kurs 2026: 3 + 1), sonst 76 px.
+    const radius = () => avatarRadius(boids.size, unit);
     const sprite = (b: Boid) => {
-      if (b.sprite) return b.sprite;
       const r = radius();
+      if (b.sprite && b.spriteR === r) return b.sprite;
       const size = Math.ceil((r * 2 + 8) * dpr);
       const s = document.createElement("canvas");
       s.width = size; s.height = size;
@@ -126,6 +127,7 @@ export default function Swarm({ code, participants, preview, avoidSelector }: {
       g.textAlign = "center"; g.textBaseline = "middle";
       g.fillText(b.emoji, c, c + r * 0.06);
       b.sprite = s;
+      b.spriteR = r;
       return s;
     };
 
@@ -144,7 +146,7 @@ export default function Swarm({ code, participants, preview, avoidSelector }: {
       for (const p of people.current) {
         if (boids.has(p.id)) continue;
         const s = spawnPoint(w, h, qr, hash(p.id) + now);
-        boids.set(p.id, { id: p.id, name: p.name, emoji: p.emoji, color: ringColor(p.name), x: s.x, y: s.y, vx: -180 * unit, vy: 0, trail: [], wander: rand() * Math.PI * 2, sprite: null });
+        boids.set(p.id, { id: p.id, name: p.name, emoji: p.emoji, color: ringColor(p.name), x: s.x, y: s.y, vx: -180 * unit, vy: 0, trail: [], wander: rand() * Math.PI * 2, sprite: null, spriteR: 0, labelW: 0 });
       }
       for (const [id, b] of boids) {
         if (ids.has(id)) continue;
@@ -154,7 +156,7 @@ export default function Swarm({ code, participants, preview, avoidSelector }: {
       }
     };
 
-    const ringRadius = () => 150 * unit;
+    const ringRadius = () => radius() * 3.4; // zwei, drei Avatare passen bequem hinein
     const step = (dtMs: number, now: number) => {
       const dt = dtMs / 1000;
       const slow = reduceRef.current ? 0.5 : 1;
@@ -177,6 +179,11 @@ export default function Swarm({ code, participants, preview, avoidSelector }: {
           if (d > perception || d === 0) continue;
           n++; cx += o.x; cy += o.y; avx += o.vx; avy += o.vy;
           if (d < R * 2.6) { const k = (R * 2.6 - d) / (R * 2.6); sx -= dx / d * k; sy -= dy / d * k; }
+          // Namen nebeneinander: etwa auf einer Höhe brauchen sie in x so viel Platz wie die Namen breit sind.
+          if (Math.abs(dy) < R * 2.4) {
+            const gap = labelGap(b.labelW, o.labelW, R, unit);
+            if (Math.abs(dx) < gap) { const k = (gap - Math.abs(dx)) / gap; sx -= Math.sign(dx || 1) * k; }
+          }
         }
         if (n) {
           ax += ((cx / n - b.x) * 0.8 + (avx / n - b.vx) * 0.5) * 0.6; // Zusammenhalt + Ausrichtung
@@ -210,6 +217,13 @@ export default function Swarm({ code, participants, preview, avoidSelector }: {
         if (sp > maxSpeed) { b.vx *= maxSpeed / sp; b.vy *= maxSpeed / sp; }
         b.vx *= 0.995; b.vy *= 0.995;
         b.x += b.vx * dt; b.y += b.vy * dt;
+        // Harte Sperrzonen (Überschrift, Zähler, Hinweis, QR-Code, Kopf- und Fußzeile): Avatar samt Namen nie darüber.
+        for (const a of avoid) {
+          const q = escapeRect(b, a, R, R * 1.7, { w, h });
+          if (q.x !== b.x) b.vx = 0;
+          if (q.y !== b.y) b.vy = 0;
+          b.x = q.x; b.y = q.y;
+        }
         b.x = Math.min(w - R, Math.max(R, b.x)); b.y = Math.min(h - R * 1.6, Math.max(R, b.y)); // ganz sichtbar, Name inklusive
         if (!reduceRef.current) { b.trail.push({ x: b.x, y: b.y }); if (b.trail.length > 10) b.trail.shift(); } else b.trail.length = 0;
       }
@@ -277,6 +291,7 @@ export default function Swarm({ code, participants, preview, avoidSelector }: {
         const size = s.width / dpr;
         ctx.drawImage(s, b.x - size / 2, b.y - size / 2, size, size);
         ctx.fillStyle = "#f4f4f8";
+        b.labelW = ctx.measureText(b.name).width;
         ctx.fillText(b.name, b.x, b.y + R + 6 * unit);
       }
       ctx.globalAlpha = 1;
