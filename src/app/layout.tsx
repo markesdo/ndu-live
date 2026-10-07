@@ -9,7 +9,9 @@ const sans = Instrument_Sans({ subsets: ["latin", "latin-ext"], variable: "--nf-
 const mono = JetBrains_Mono({ subsets: ["latin", "latin-ext"], variable: "--nf-code", display: "swap" });
 
 // Link-Vorschau in WhatsApp, Teams & Co.: Das Bild liegt als src/app/opengraph-image.png daneben (Next setzt
-// og:image selbst). Die absolute Adresse nimmt Next auf Vercel aus der Produktions-Domain – kein metadataBase nötig.
+// og:image selbst). Die absolute Adresse nimmt Next auf Vercel beim Build aus der Produktions-Domain – kein
+// metadataBase nötig; nach einem Domainwechsel einmal neu deployen.
+const title = "NDU Live · Mach mit";
 const description = "Vorname eingeben, Vibe wählen – und live auf der Leinwand mitspielen. Kein Konto, keine App.";
 
 export const metadata: Metadata = {
@@ -19,10 +21,10 @@ export const metadata: Metadata = {
     type: "website",
     siteName: "NDU Live",
     locale: "de_AT",
-    title: "NDU Live · Mach mit",
+    title,
     description,
   },
-  twitter: { card: "summary_large_image", title: "NDU Live · Mach mit", description },
+  twitter: { card: "summary_large_image", title, description },
 };
 
 // Kein maximumScale: Zoomen sperren schadet der Barrierefreiheit. Gegen das Auto-Zoom von iOS
