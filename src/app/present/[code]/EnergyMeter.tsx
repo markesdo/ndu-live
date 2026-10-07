@@ -16,9 +16,19 @@ export function useEnergy(code: string, participants: Participant[], preview: bo
   const reached = useRef(0); // höchste erreichte Stufe – geht nie zurück
   const [total, setTotal] = useState(0);
   const [stage, setStage] = useState(0);
+  const [gen, setGen] = useState(0); // neuer Durchlauf nach einem Reset
   useEffect(() => {
     known.current = new Set(participants.map((p) => p.id));
     count.current = participants.length;
+    // Reset in der Lobby (alle Teilnehmenden gelöscht, Schritt bleibt 0): Spiel und Durchlauf neu beginnen,
+    // sonst bliebe die Leinwand auf „Deployed“ und neue Handys bekämen eine gesperrte Taste.
+    if (participants.length === 0 && (state.current.total > 0 || reached.current > 0)) {
+      state.current = emptyEnergy();
+      reached.current = 0;
+      setTotal(0);
+      setStage(0);
+      setGen((g) => g + 1);
+    }
   }, [participants]);
 
   useEffect(() => {
@@ -58,7 +68,7 @@ export function useEnergy(code: string, participants: Participant[], preview: bo
     const onStage = setInterval(() => { if (reached.current !== lastSent) announce(); }, 250);
     announce();
     return () => { clearInterval(render); clearInterval(beat); clearInterval(onStage); supabase.removeChannel(channel); };
-  }, [code, preview]);
+  }, [code, preview, gen]);
 
   return { total, stage };
 }

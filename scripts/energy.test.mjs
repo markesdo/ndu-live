@@ -136,3 +136,20 @@ test("Leinwand: zwei Tippende schaffen eine Stufe, auch wenn mehr beigetreten si
   }
   assert.ok(s.total >= ziel, `Stufe 1 erreicht: ${s.total} >= ${ziel}`);
 });
+
+test("Leinwand: kommen mitten im Spiel Leute dazu, bleibt die Stufe nicht hängen (Review #5, zweite Runde)", () => {
+  const s = emptyEnergy();
+  const ids = new Set(Array.from({ length: 30 }, (_, i) => `p${i}`));
+  const tapper = ["p0", "p1", "p2"];
+  let t = 0, reached = 0;
+  const run = (participants, rounds) => {
+    for (let r = 0; r < rounds; r++, t += MIN_GAP_MS) {
+      for (const p of tapper) accept(s, { pid: p, n: 24 }, ids, participants, t, reached);
+      reached = Math.max(reached, stageOf(s.total, stageTargets(participants)));
+    }
+  };
+  run(10, 40);
+  assert.ok(reached >= 1, "Stufe 1 mit 10 Leuten erreicht");
+  run(30, 400);
+  assert.ok(reached >= 2, `nach dem Zuwachs auf 30 weiter: Stufe ${reached}, Stand ${s.total}`);
+});

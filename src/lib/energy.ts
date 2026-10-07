@@ -52,9 +52,11 @@ export function wordsFor(total: number, targets: readonly number[], wordCount: n
 
 export type Msg = { pid: unknown; n: unknown; seq?: unknown };
 type Person = { last: number; stage: number; inStage: number };
-export type EnergyState = { total: number; people: Map<string, Person> };
+// stage/stageStart: aktuelle Stufe und der Gesamtstand, bei dem sie begann. Wachsen die Schwellen, weil Leute
+// nachkommen, ist der Weg bis zum Stufenziel länger als die nominale Stufenlänge – der Deckel rechnet mit dem echten Weg.
+export type EnergyState = { total: number; people: Map<string, Person>; stage: number; stageStart: number };
 
-export const emptyEnergy = (): EnergyState => ({ total: 0, people: new Map() });
+export const emptyEnergy = (): EnergyState => ({ total: 0, people: new Map(), stage: 0, stageStart: 0 });
 
 // Leinwand: eine Nachricht prüfen und zählen. Ändert den Zustand an Ort und Stelle (wird bis zu 12×/s
 // aufgerufen) und gibt zurück, wie viele Tokens gezählt wurden. Die Leinwand ist der einzige vertrauenswürdige Ort.
@@ -90,7 +92,8 @@ export function accept(state: EnergyState, msg: Msg, knownIds: ReadonlySet<strin
   // Anteil pro Person und Stufe begrenzen. Maßstab sind die Personen, die in dieser Stufe wirklich tippen
   // (nicht die Beigetretenen): Tippen nur zwei, darf jede 60 % – sonst bliebe die Stufe bei 80 % hängen.
   // Probe allein (≤ 2 Beigetretene): eine Person darf alles.
-  const len = targets[stage] - (stage === 0 ? 0 : targets[stage - 1]);
+  if (stage !== state.stage) { state.stage = stage; state.stageStart = state.total; }
+  const len = targets[stage] - Math.min(state.stageStart, stage === 0 ? 0 : targets[stage - 1]);
   // Mindestens zwei Aktive annehmen, sobald mehr als zwei beigetreten sind – eine Person allein schafft nie eine Stufe.
   const active = Math.max(activeInStage(state, stage, msg.pid), participants > 2 ? 2 : 1);
   const cap = shareCap(active);
