@@ -142,7 +142,19 @@ test("Leinwand: ohne Nachricht gilt die Person nach 3,5 s als losgelassen (gespe
 test("Leinwand: verspätete ältere Nachricht überschreibt das Loslassen nicht (Review #6)", () => {
   const m = new Map();
   const t0 = 1_800_000_000_000; // seq = Uhrzeit des Handys
-  acceptStick(m, { pid: "a", x: 0, y: 0, seq: t0 + 600 }, ids, 0); // Loslassen kommt zuerst an
-  assert.equal(acceptStick(m, { pid: "a", x: 1, y: 0, seq: t0 }, ids, 300), false); // alte Richtung, verspätet
+  acceptStick(m, { pid: "a", x: 0, y: 0, seq: t0 + 600 }, ids, 0, t0 + 650); // Loslassen kommt zuerst an
+  assert.equal(acceptStick(m, { pid: "a", x: 1, y: 0, seq: t0 }, ids, 300, t0 + 950), false); // alte Richtung, verspätet
   assert.deepEqual(m.get("a").target, { x: 0, y: 0 });
+});
+
+test("Leinwand: gefälschte seq knapp in der Zukunft sperrt das echte Handy nicht minutenlang aus (Security-Review #6)", () => {
+  const m = new Map();
+  const wall = 1_000_000;
+  // Fälschung als Loslassen (umgeht den Mindestabstand), seq 4 Minuten voraus
+  assert.equal(acceptStick(m, { pid: "a", x: 0, y: 0, seq: wall + 240_000 }, ids, 0, wall), true);
+  // echtes Handy, seq = jetzt: muss gelten
+  assert.equal(acceptStick(m, { pid: "a", x: 1, y: 0, seq: wall + 50 }, ids, MIN_GAP_MS, wall + 50), true);
+  // Fälschung knapp im erlaubten Vorlauf blockiert höchstens SEQ_WINDOW_MS
+  assert.equal(acceptStick(m, { pid: "a", x: 0, y: 0, seq: wall + 1_500 }, ids, 2 * MIN_GAP_MS, wall + 100), true);
+  assert.equal(acceptStick(m, { pid: "a", x: 0, y: 1, seq: wall + 3_600 }, ids, 3 * MIN_GAP_MS, wall + 3_600), true);
 });
