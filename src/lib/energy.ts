@@ -64,9 +64,14 @@ export const emptyEnergy = (): EnergyState => ({ total: 0, people: new Map(), st
 // für ein Mini-Spiel in Kauf genommen (es geht um nichts, und der Deckel pro Nachricht bleibt).
 // minStage: Stufen gehen auf der Leinwand nie zurück, auch wenn später jemand dazukommt und die Schwellen wachsen.
 // Wie viele Personen tragen in dieser Stufe schon bei (die sendende mitgezählt)?
-function activeInStage(state: EnergyState, stage: number, pid: string): number {
+// Nur wer zuletzt noch gesendet hat, zählt: Wer einmal tippt und aufhört, fällt nach ACTIVE_MS heraus –
+// sonst drückten ein paar Einmal-Tipper den Anteil der Dauertipper unter das Stufenziel (Spiel hinge fest).
+export const ACTIVE_MS = 6000;
+function activeInStage(state: EnergyState, stage: number, pid: string, now: number): number {
   let n = 0;
-  for (const [id, p] of state.people) if (id === pid || (p.stage === stage && p.inStage > 0)) n++;
+  for (const [id, p] of state.people) {
+    if (id === pid || (p.stage === stage && p.inStage > 0 && now - p.last <= ACTIVE_MS)) n++;
+  }
   return state.people.has(pid) ? n : n + 1;
 }
 
@@ -95,7 +100,7 @@ export function accept(state: EnergyState, msg: Msg, knownIds: ReadonlySet<strin
   if (stage !== state.stage) { state.stage = stage; state.stageStart = state.total; }
   const len = targets[stage] - Math.min(state.stageStart, stage === 0 ? 0 : targets[stage - 1]);
   // Mindestens zwei Aktive annehmen, sobald mehr als zwei beigetreten sind – eine Person allein schafft nie eine Stufe.
-  const active = Math.max(activeInStage(state, stage, msg.pid), participants > 2 ? 2 : 1);
+  const active = Math.max(activeInStage(state, stage, msg.pid, now), participants > 2 ? 2 : 1);
   const cap = shareCap(active);
   if (cap < 1) n = Math.min(n, Math.max(0, Math.floor(len * cap) - person.inStage));
   person.last = now;

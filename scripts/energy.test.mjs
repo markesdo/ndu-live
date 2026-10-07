@@ -154,3 +154,17 @@ test("Leinwand: kommen mitten im Spiel Leute dazu, bleibt die Stufe nicht hänge
   run(30, 400);
   assert.ok(reached >= 2, `nach dem Zuwachs auf 30 weiter: Stufe ${reached}, Stand ${s.total}`);
 });
+
+test("Leinwand: Einmal-Tipper blockieren die Dauertipper nicht (Review #5, dritte Runde)", () => {
+  const s = emptyEnergy();
+  const ids = new Set(Array.from({ length: 20 }, (_, i) => `p${i}`));
+  const [ziel] = stageTargets(20);
+  let t = 0;
+  accept(s, { pid: "p2", n: 1 }, ids, 20, t);
+  accept(s, { pid: "p3", n: 1 }, ids, 20, t);
+  for (let r = 0; r < 2000 && s.total < ziel; r++, t += MIN_GAP_MS) {
+    accept(s, { pid: "p0", n: 24 }, ids, 20, t);
+    accept(s, { pid: "p1", n: 24 }, ids, 20, t);
+  }
+  assert.ok(s.total >= ziel, `Stufe 1 erreicht: ${s.total} >= ${ziel}`);
+});
