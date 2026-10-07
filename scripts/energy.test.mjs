@@ -148,8 +148,9 @@ test("Leinwand: kommen mitten im Spiel Leute dazu, bleibt die Stufe nicht hänge
       reached = Math.max(reached, stageOf(s.total, stageTargets(participants)));
     }
   };
-  run(10, 40);
-  assert.ok(reached >= 1, "Stufe 1 mit 10 Leuten erreicht");
+  // genau bis Stufe 1 mit 10 Leuten (Ziel 400), dann kommen 20 dazu (Ziele 1200/3600/7200)
+  while (reached < 1) run(10, 1);
+  assert.equal(reached, 1);
   run(30, 400);
   assert.ok(reached >= 2, `nach dem Zuwachs auf 30 weiter: Stufe ${reached}, Stand ${s.total}`);
 });
