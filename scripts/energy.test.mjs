@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  MAX_BATCH, MIN_GAP_MS, accept, batchSize, emptyEnergy, promptWords, stageOf, stageProgress, stageTargets, wordsFor,
+  MAX_BATCH, MIN_GAP_MS, accept, batchSize, emptyEnergy, nextPhoneStage, promptWords, stageOf, stageProgress, stageTargets, wordsFor,
 } from "../src/lib/energy.ts";
 
 test("Handy: Bündel ist auf 24 gedeckelt, 0 und Unsinn schicken nichts", () => {
@@ -89,4 +89,35 @@ test("Leinwand: der Anteil gilt pro Stufe neu, nach „Deployed“ zählt nichts
   const before = s.total;
   assert.equal(accept(s, { pid: "a", n: 24 }, ids, 5, t + MIN_GAP_MS), 0);
   assert.equal(s.total, before);
+});
+
+// Review-Befunde PR #5
+test("Leinwand: Stufe geht nicht zurück, wenn jemand dazukommt (minStage)", () => {
+  const s = emptyEnergy();
+  s.total = stageTargets(20)[2]; // 20 Leute: fertig
+  // 21. Person: Schwellen wachsen, ohne minStage würde wieder gezählt
+  assert.equal(accept(s, { pid: "a", n: 10 }, ids, 21, 0, 3), 0);
+  assert.equal(accept(emptyEnergy(), { pid: "a", n: 10 }, ids, 21, 0, 0), 10);
+  assert.equal(stageProgress(stageTargets(20)[0], stageTargets(21), 1), 0); // unter der Schwelle der erreichten Stufe
+});
+
+test("Handy: gleicher Durchlauf nur nach oben, neuer Durchlauf fängt neu an", () => {
+  let p = nextPhoneStage(null, { run: "r1", stage: 1 });
+  assert.deepEqual(p, { run: "r1", stage: 1 });
+  p = nextPhoneStage(p, { run: "r1", stage: 0 });
+  assert.deepEqual(p, { run: "r1", stage: 1 }); // verspätete alte Nachricht
+  p = nextPhoneStage(p, { run: "r1", stage: 3 });
+  assert.deepEqual(p, { run: "r1", stage: 3 });
+  p = nextPhoneStage(p, { run: "r2", stage: 0 }); // Leinwand neu geladen
+  assert.deepEqual(p, { run: "r2", stage: 0 });
+  assert.deepEqual(nextPhoneStage(p, { run: "r2", stage: 7 }), p);
+  assert.deepEqual(nextPhoneStage(p, { stage: 2 }), p);
+  assert.deepEqual(nextPhoneStage(p, null), p);
+});
+
+test("Leinwand: zwei Bündel einer Person dicht hintereinander (Netz schwankt) zählen beide", () => {
+  const s = emptyEnergy();
+  assert.equal(accept(s, { pid: "a", n: 20 }, ids, 5, 1900), 20);
+  assert.equal(accept(s, { pid: "a", n: 20 }, ids, 5, 2100 + MIN_GAP_MS - 200 + 100), 20);
+  assert.ok(MIN_GAP_MS <= 500);
 });

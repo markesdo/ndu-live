@@ -11,7 +11,7 @@ export default function Lobby({ code, participants, joinUrl, showQr, preview = f
   code: string; participants: Participant[]; joinUrl: string; showQr: boolean; preview?: boolean;
 }) {
   const newest = useArrivals(participants);
-  const energy = useEnergy(code, participants, preview);
+  const { total: energy, stage: energyStage } = useEnergy(code, participants, preview);
   // Sobald der Raum tippt, rückt die Überschrift auf eine Zeile – sonst passt der Zähler bei 1280×720 nicht mehr.
   const many = participants.length > 8 || energy > 0;
   const dense = participants.length > 16;
@@ -54,7 +54,7 @@ export default function Lobby({ code, participants, joinUrl, showQr, preview = f
           </div>
         )}
         {/* Gemeinsamer Token-Zähler: erscheint erst mit dem ersten Tipp, links unter den Namen – nie beim QR-Code. */}
-        <EnergyMeter code={code} participants={participants} preview={preview} total={energy} />
+        <EnergyMeter participants={participants} total={energy} stage={energyStage} />
       </div>
 
       {showQr && (

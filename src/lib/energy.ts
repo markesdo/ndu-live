@@ -4,7 +4,10 @@
 
 export const FLUSH_MS = 2000; // Handy: höchstens eine Nachricht alle 2 s
 export const MAX_BATCH = 24; // 12 Tipps pro Sekunde – wer schneller ist, klickt automatisch
-export const MIN_GAP_MS = 1200; // Leinwand: pro Person höchstens eine Nachricht in diesem Abstand
+// Leinwand: pro Person höchstens eine Nachricht in diesem Abstand. Handys senden alle 2 s, schwankende
+// Netzlaufzeit kann zwei Nachrichten aber dicht hintereinander ankommen lassen – deshalb großzügig.
+export const MIN_GAP_MS = 500;
+export const STAGE_EVERY_MS = 3000; // Leinwand meldet ihren Stand regelmäßig – auch für Nachzügler und verlorene Nachrichten
 export const SHARE_CAP = 0.4; // Leinwand: niemand trägt mehr als 40 % einer Stufe – eine Person allein schafft es nicht
 
 export const STAGES = ["Prompt schreiben", "Agent arbeitet …", "Deployen …"] as const;
@@ -32,9 +35,10 @@ export function stageOf(total: number, targets: readonly number[]): number {
   return s;
 }
 
-// Fortschritt innerhalb der laufenden Stufe, 0..1.
-export function stageProgress(total: number, targets: readonly number[]): number {
-  const s = stageOf(total, targets);
+// Fortschritt innerhalb einer Stufe, 0..1 (ohne Angabe: die laufende Stufe). Die Leinwand übergibt ihre
+// erreichte Stufe – nach einem Nachzügler kann die Summe kurz unter deren Schwelle liegen, dann zeigt sie 0.
+export function stageProgress(total: number, targets: readonly number[], stage = stageOf(total, targets)): number {
+  const s = stage;
   if (s >= targets.length) return 1;
   const from = s === 0 ? 0 : targets[s - 1];
   return Math.min(1, Math.max(0, (total - from) / (targets[s] - from)));
@@ -54,14 +58,17 @@ export const emptyEnergy = (): EnergyState => ({ total: 0, people: new Map() });
 
 // Leinwand: eine Nachricht prüfen und zählen. Ändert den Zustand an Ort und Stelle (wird bis zu 12×/s
 // aufgerufen) und gibt zurück, wie viele Tokens gezählt wurden. Die Leinwand ist der einzige vertrauenswürdige Ort.
-export function accept(state: EnergyState, msg: Msg, knownIds: ReadonlySet<string>, participants: number, now: number): number {
+// Bekannte Grenze: Die Person-ID kommt vom Handy. Wer per Skript fremde IDs schickt, umgeht den Anteil-Deckel –
+// für ein Spiel in der Lobby in Kauf genommen (es geht um nichts, und der Deckel pro Nachricht bleibt).
+// minStage: Stufen gehen auf der Leinwand nie zurück, auch wenn später jemand dazukommt und die Schwellen wachsen.
+export function accept(state: EnergyState, msg: Msg, knownIds: ReadonlySet<string>, participants: number, now: number, minStage = 0): number {
   if (typeof msg.pid !== "string" || !knownIds.has(msg.pid)) return 0;
   const raw = typeof msg.n === "number" ? msg.n : Number.NaN;
   let n = batchSize(raw);
   if (n === 0) return 0;
 
   const targets = stageTargets(participants);
-  const stage = stageOf(state.total, targets);
+  const stage = Math.max(stageOf(state.total, targets), minStage);
   if (stage >= targets.length) return 0; // fertig: nichts mehr zählen
 
   const person = state.people.get(msg.pid) ?? { last: -Infinity, stage, inStage: 0 };
@@ -80,4 +87,14 @@ export function accept(state: EnergyState, msg: Msg, knownIds: ReadonlySet<strin
   person.inStage += n;
   state.total += n;
   return n;
+}
+
+// Handy: Stand der Leinwand übernehmen. Gleicher Durchlauf (run) → Stufe nur nach oben; neuer Durchlauf
+// (Leinwand neu geladen, zurück in die Lobby) → neu anfangen, damit kein Handy auf „Deployed“ hängen bleibt.
+export type PhoneStage = { run: string; stage: number };
+export function nextPhoneStage(prev: PhoneStage | null, msg: unknown): PhoneStage | null {
+  const m = msg as { run?: unknown; stage?: unknown } | null;
+  if (!m || typeof m.run !== "string" || typeof m.stage !== "number" || !Number.isInteger(m.stage) || m.stage < 0 || m.stage > 3) return prev;
+  if (!prev || prev.run !== m.run) return { run: m.run, stage: m.stage };
+  return m.stage > prev.stage ? { run: prev.run, stage: m.stage } : prev;
 }

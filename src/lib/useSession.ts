@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabase";
 import { createLoader, mergeRows } from "./session-merge";
+import { nextPhoneStage, type PhoneStage } from "./energy";
 
 export type Participant = { id: string; name: string; emoji: string };
 export type Answer = { id: string; participant_id: string; step: number; value: string };
@@ -20,7 +21,7 @@ export function useSession(code: string) {
   // Ein Nachladen (nach Standby/Wiederverbinden) ist gescheitert – der alte Stand bleibt stehen.
   const [refreshFailed, setRefreshFailed] = useState(false);
   // Stufe des Lobby-Spiels („Der Raum schreibt den Prompt“) – nur per Broadcast von der Leinwand, nicht gespeichert.
-  const [energyStage, setEnergyStage] = useState<number | null>(null);
+  const [energyStage, setEnergyStage] = useState<PhoneStage | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -79,8 +80,7 @@ export function useSession(code: string) {
           setAnswers((prev) => (prev.some((x) => x.id === a.id) ? prev : [...prev, a]));
         })
       .on("broadcast", { event: "stage" }, ({ payload }) => {
-        const s = (payload as { stage?: unknown })?.stage;
-        if (typeof s === "number" && s >= 0 && s <= 3) setEnergyStage((prev) => (prev === null || s > prev ? s : prev));
+        setEnergyStage((prev) => nextPhoneStage(prev, payload));
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "reactions", filter: `session_code=eq.${code}` },
         (payload) => {
@@ -114,5 +114,5 @@ export function useSession(code: string) {
     };
   }, [code]);
 
-  return { step, participants, answers, reactions, error, live, reconnecting: channelDown || refreshFailed, energyStage };
+  return { step, participants, answers, reactions, error, live, reconnecting: channelDown || refreshFailed, energyStage: energyStage?.stage ?? null };
 }
