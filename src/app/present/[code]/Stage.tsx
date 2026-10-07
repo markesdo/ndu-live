@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, LayoutGroup, MotionConfig, motion, useReducedMotion } from "motion/react";
-import { STEPS, courseUrl } from "@/lib/steps";
+import { STEPS, courseUrl, projectorCourseUrl } from "@/lib/steps";
 import { stripNames, type Spotlight, type Thema } from "@/lib/ai-shared";
 import { doneSpot, ideaTextForAi, requestSpot, type SpotQueue } from "@/lib/spot-queue";
 import { hash } from "@/lib/avatar";
@@ -135,6 +135,7 @@ export default function Stage(props: Props) {
         return go(step - 1);
       }
       if ((k === "h" || k === "H") && current.kind === "finale") return patch({ hook: !sub.hook });
+      if (k === "Enter" && sub.hook && courseUrl(host)) { e.preventDefault(); window.location.href = projectorCourseUrl(courseUrl(host)!); return; }
       if ((k === "t" || k === "T") && current.kind === "text") return requestThemen();
     };
     window.addEventListener("keydown", onKey);
