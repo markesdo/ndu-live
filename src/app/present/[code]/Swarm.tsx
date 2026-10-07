@@ -165,8 +165,14 @@ export default function Swarm({ code, participants, preview, avoidSelector }: {
       const perception = R * 5;
       const list = [...boids.values()];
       const autonomous = list.length >= 2 && now - lastInputAt > AUTONOMOUS_MS;
-      // Ring erst setzen, wenn die Sperrzonen vermessen sind; liegt er (nach Größenänderung) über Text/QR, neu setzen.
-      if (avoid.length && (!ringPos || ringBlocked(ringPos, ringRadius(), avoid))) ringPos = ringSpot(w, h, ringRadius(), avoid, rand);
+      // Harte Sperrzonen einmal pro Schritt zusammenfassen. Dieselbe Liste gilt für das Wegschieben der Avatare UND für
+      // die Platzierung des Rings – sonst landet der Ring in einer Lücke, die kein Avatar erreichen kann (Review #6).
+      const blocked = mergeRects(avoid, R, R * 1.7, R);
+      // Ring erst setzen, wenn die Sperrzonen vermessen sind. Maßgeblich ist, dass die MITTE für Avatare erreichbar ist
+      // (Abstand ringMargin zu jeder Sperrzone) – der Kreis selbst darf hinter Text liegen. Den ganzen Kreis frei zu
+      // verlangen, ließ bei wenig Platz nur den Notfall-Ort übrig, mitten auf der Hinweiszeile (Review #6).
+      const ringMargin = R * 1.6;
+      if (blocked.length && (!ringPos || ringBlocked(ringPos, ringMargin, blocked))) ringPos = ringSpot(w, h, ringMargin, blocked, rand);
 
       for (const b of list) {
         const pilot = input.get(b.id);
@@ -218,7 +224,7 @@ export default function Swarm({ code, participants, preview, avoidSelector }: {
         b.vx *= 0.995; b.vy *= 0.995;
         b.x += b.vx * dt; b.y += b.vy * dt;
         // Harte Sperrzonen (Überschrift, Zähler, Hinweis, QR-Code, Kopf- und Fußzeile): Avatar samt Namen nie darüber.
-        for (const a of mergeRects(avoid, R, R * 1.7, R)) {
+        for (const a of blocked) {
           const q = escapeRect(b, a, R, R * 1.7, { w, h });
           if (q.x !== b.x) b.vx = 0;
           if (q.y !== b.y) b.vy = 0;
@@ -239,7 +245,7 @@ export default function Swarm({ code, participants, preview, avoidSelector }: {
         if (out.burst) {
           cv.dataset.runde = String(ring.round); // Zahl der geplatzten Ringe – für Tests und zum Nachsehen
           burst(ringPos.x, ringPos.y, inside.map((b) => b.color), 60);
-          ringPos = ringSpot(w, h, rr, avoid, rand);
+          ringPos = ringSpot(w, h, R * 1.6, blocked, rand);
         }
       }
 
