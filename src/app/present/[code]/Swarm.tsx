@@ -88,6 +88,7 @@ export default function Swarm({ code, participants, preview, avoidSelector }: {
         cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
         unit = Math.max(0.5, Math.min(w / 1920, h / 1080) * 1.0);
         boids.forEach((b) => { b.sprite = null; }); // Größe neu
+        ringPos = null; // neue Bühnengröße: Ring neu setzen, sonst hängt er womöglich halb über dem Rand (Review #6)
       }
       const root = cv.parentElement;
       avoid = [];
