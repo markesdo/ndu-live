@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./supabase";
 import { createLoader, mergeRows } from "./session-merge";
+import { nextPhoneStage, type PhoneStage } from "./energy";
 
 export type Participant = { id: string; name: string; emoji: string };
 export type Answer = { id: string; participant_id: string; step: number; value: string };
@@ -19,6 +20,8 @@ export function useSession(code: string) {
   const [channelDown, setChannelDown] = useState(false);
   // Ein Nachladen (nach Standby/Wiederverbinden) ist gescheitert – der alte Stand bleibt stehen.
   const [refreshFailed, setRefreshFailed] = useState(false);
+  // Stufe des Token-Spiels („Der Raum schreibt den Prompt“) – nur per Broadcast von der Leinwand, nicht gespeichert.
+  const [energyStage, setEnergyStage] = useState<PhoneStage | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -61,7 +64,12 @@ export function useSession(code: string) {
     const channel = supabase
       .channel(`session-${code}`)
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "sessions", filter: `code=eq.${code}` },
-        (payload) => setStep((payload.new as { active_step: number }).active_step))
+        (payload) => {
+          const next = (payload.new as { active_step: number }).active_step;
+          // Neuer Schritt = neues Token-Spiel (die Leinwand baut es beim Blättern ab und neu auf, mit neuem Durchlauf).
+          // Den alten Stand vergessen, sonst nähme das Handy den neuen Durchlauf erst nach RUN_SWITCH_MS an.
+          setStep((prev) => { if (prev !== next) setEnergyStage(null); return next; });
+        })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "participants", filter: `session_code=eq.${code}` },
         (payload) => {
           const p = payload.new as Participant;
@@ -76,6 +84,9 @@ export function useSession(code: string) {
           loader.arrivedAnswer(a.id);
           setAnswers((prev) => (prev.some((x) => x.id === a.id) ? prev : [...prev, a]));
         })
+      .on("broadcast", { event: "stage" }, ({ payload }) => {
+        setEnergyStage((prev) => nextPhoneStage(prev, payload, Date.now()));
+      })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "reactions", filter: `session_code=eq.${code}` },
         (payload) => {
           const r = payload.new as Reaction;
@@ -108,5 +119,5 @@ export function useSession(code: string) {
     };
   }, [code]);
 
-  return { step, participants, answers, reactions, error, live, reconnecting: channelDown || refreshFailed };
+  return { step, participants, answers, reactions, error, live, reconnecting: channelDown || refreshFailed, energyStage: energyStage?.stage ?? null };
 }

@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { useSession, type Participant } from "@/lib/useSession";
 import { AVATARS, AVATAR_NAMES, EMOJIS, EMOJI_NAMES, STEPS, courseUrl } from "@/lib/steps";
 import { ringColor } from "@/lib/avatar";
+import TokenPad from "./TokenPad";
 
 type Me = { id: string; name: string; emoji: string };
 
@@ -26,7 +27,10 @@ function buzz(pattern: number | number[]) {
 }
 
 export default function JoinClient({ code }: { code: string }) {
-  const { step, participants, answers, error, live, reconnecting } = useSession(code);
+  const { step, participants, answers, error, live, reconnecting, energyStage } = useSession(code);
+  // Für die Token-Taste (eigener Schritt vor dem Finale): Sie sieht beim Weiterblättern sofort den neuen Schritt.
+  const stepRef = useRef<number | null>(step);
+  useEffect(() => { stepRef.current = step; }, [step]);
   const [me, setMe] = useState<Me | null>(null);
   const [rejoined, setRejoined] = useState(false);
   const [justJoined, setJustJoined] = useState(false);
@@ -274,6 +278,13 @@ export default function JoinClient({ code }: { code: string }) {
                   <span className="font-mono text-xs uppercase tracking-[0.12em] text-muted">dabei</span>
                 </div>
                 <AvatarWall participants={participants} meId={me.id} />
+              </div>
+            )}
+
+            {current.kind === "tokens" && (
+              <div>
+                <h1 className="mb-2 text-[30px] font-bold leading-[1.05]">{current.title}</h1>
+                <TokenPad code={code} pid={me.id} stage={energyStage} stepRef={stepRef} padStep={step} />
               </div>
             )}
 

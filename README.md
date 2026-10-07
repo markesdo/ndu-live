@@ -4,13 +4,14 @@ QR-Code an der Leinwand, Studierende sind am Handy in 20 Sekunden drin, Ergebnis
 
 **Stack:** Next.js · Supabase (Postgres + Realtime) · Motion · Vercel — derselbe Stack, den die Studierenden im Kurs benutzen.
 
-## Ablauf der Session (5 Schritte, mit ← → oder den Buttons unten)
+## Ablauf der Session (6 Schritte, mit ← → oder den Buttons unten)
 
 1. **Lobby** – QR-Code, Teilnehmende ploppen rein
 2. **Umfrage** – „Wie viel hast du schon programmiert?“
 3. **Umfrage** – „Wovor hast du am meisten Respekt?“
 4. **Freitext** – „Was würdest du bauen, wenn du es könntest?“ (Karten fliegen rein – gleichzeitig Ideensammlung für die Hausaufgabe!)
-5. **Finale** – „60 Minuten, keine Zeile Code“ + Emoji-Reaktionen steigen auf
+5. **Token-Spiel** – „Jetzt baut der Raum.“ Jeder Tipp am Handy ist ein Token; die Leinwand schreibt den Prompt und füllt drei Stufen bis `✓ Deployed`
+6. **Finale** – „60 Minuten, keine Zeile Code“ + Emoji-Reaktionen steigen auf
 
 Fragen und Optionen ändern: `src/lib/steps.ts`.
 
@@ -23,7 +24,7 @@ Fragen und Optionen ändern: `src/lib/steps.ts`.
 
 ## Proben ohne Datenbank
 
-Lokal (nur `npm run dev`) zeigt `/present/ndu?vorschau=lobby|poll|poll2|text|themen|finale` jeden Schritt mit erfundenen Daten – ohne Supabase und ohne Presenter-Key. In der Textwand: Karte anklicken = Spotlight, `T` = Themen. Im Finale: `H` = QR zur Kurs-Website.
+Lokal (nur `npm run dev`) zeigt `/present/ndu?vorschau=lobby|poll|poll2|text|themen|tokens|finale` jeden Schritt mit erfundenen Daten – ohne Supabase und ohne Presenter-Key. In der Textwand: Karte anklicken = Spotlight, `T` = Themen. Im Finale: `H` = QR zur Kurs-Website.
 
 ## Im Hörsaal
 

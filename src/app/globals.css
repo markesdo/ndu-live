@@ -72,6 +72,7 @@ h1, h2 { font-family: var(--nf-display), ui-sans-serif, system-ui, sans-serif; l
 .stage[data-mood="poll"]   { --glow-a: rgba(107, 140, 255, 0.24); --glow-b: rgba(94, 194, 255, 0.10); }
 .stage[data-mood="poll2"]  { --glow-a: rgba(255, 176, 59, 0.22); --glow-b: rgba(255, 106, 77, 0.10); }
 .stage[data-mood="text"]   { --glow-a: rgba(255, 106, 77, 0.18); --glow-b: rgba(107, 140, 255, 0.18); }
+.stage[data-mood="tokens"] { --glow-a: rgba(107, 140, 255, 0.20); --glow-b: rgba(74, 222, 128, 0.14); }
 .stage[data-mood="finale"] { --glow-a: rgba(74, 222, 128, 0.16); --glow-b: rgba(255, 106, 77, 0.18); }
 
 /* Blinkender Cursor im Spotlight-Terminal */

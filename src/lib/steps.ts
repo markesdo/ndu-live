@@ -5,6 +5,7 @@ export type Step =
   | { kind: "lobby"; title: string }
   | { kind: "poll"; title: string; options: string[]; punchline?: string }
   | { kind: "text"; title: string; placeholder: string; after: string }
+  | { kind: "tokens"; title: string; hint: string }
   | { kind: "finale"; title: string };
 
 export const STEPS: Step[] = [
@@ -26,6 +27,8 @@ export const STEPS: Step[] = [
     placeholder: "Eine App, die …",
     after: "Gespeichert. Am Tag 2 holst du dir deine Idee hier wieder ab.",
   },
+  // Gemeinsames Mini-Spiel vor dem Finale: jeder Tipp ist ein Token, der Raum schreibt den Prompt bis „Deployed“.
+  { kind: "tokens", title: "Jetzt baut der Raum.", hint: "Tippt auf euren Handys – jeder Tipp ist ein Token." },
   { kind: "finale", title: "Diese App: 60 Minuten, keine Zeile Code." },
 ];
 
